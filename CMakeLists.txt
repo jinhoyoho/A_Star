@@ -27,7 +27,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(angles REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
 find_package(visualization_msgs REQUIRED)
-
+find_package(nav_msgs REQUIRED)
+find_package(nav2_core REQUIRED)
 
 
 # Declare a library
@@ -38,7 +39,9 @@ add_library(${PROJECT_NAME}
   src/global_planner.cpp
 )
 
-include_directories(include)
+include_directories(include
+ ${nav_msgs_INCLUDE_DIRS}
+ ${nav2_core_INCLUDE_DIRS})
 
 
 # 헤더 파일 경로 추가

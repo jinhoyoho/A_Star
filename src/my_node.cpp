@@ -9,10 +9,9 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr map_in(new pcl::PointCloud<pcl::PointXYZ>())
 
 void load_map()
 {
-    // PCD 파일을 로드
     if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/jinho/Downloads/GlobalMap.pcd", *map_in) == -1)
     {
-        return ;
+        return;
     }
 }
 
@@ -20,19 +19,9 @@ void roi()
 {
     pcl::PassThrough<pcl::PointXYZ> pass;
     pass.setInputCloud(map_in);
-
-    // Z 축 기준으로 필터링 (예: Z축 범위 0.0 ~ 1.0)
     pass.setFilterFieldName("z");
     pass.setFilterLimits(0.3, 1.0);
     pass.filter(*map_in);
-}
-
-void press()
-{
-    for (auto& point : map_in->points)
-    {
-        point.z = 0.0;
-    }
 }
 
 void voxel()
@@ -43,17 +32,23 @@ void voxel()
     sor.filter(*map_in);
 }
 
+void press()
+{
+    for (auto& point : map_in->points)
+    {
+        point.x *= 10.0; // x 좌표를 두 배로 확장
+        point.y *= 10.0; // y 좌표를 두 배로 확장
+        point.z = 0.0;  // z 좌표는 0으로 설정
+    }
+}
+
 void view()
 {
     pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("Layered Cloud Viewer"));
-
     viewer->addPointCloud<pcl::PointXYZ>(map_in->makeShared());
-
-
-    // Viewer가 닫힐 때까지 기다림
-    viewer->setBackgroundColor(0, 0, 0); // 배경 색을 검은색으로 설정
-    viewer->addCoordinateSystem(1.0); // 좌표계를 추가
-    viewer->initCameraParameters(); // 카메라 파라미터 초기화
+    viewer->setBackgroundColor(0, 0, 0);
+    viewer->addCoordinateSystem(1.0);
+    viewer->initCameraParameters();
 
     while (!viewer->wasStopped()) {
         viewer->spinOnce(100);
@@ -68,11 +63,11 @@ void save()
 int main()
 {
     load_map();
-    std::cout << map_in->size() << std::endl;
+    std::cout << "Initial size: " << map_in->size() << std::endl;
     roi();
-    press();
-    voxel();
-    std::cout << map_in->size() << std::endl;
+    voxel(); // voxel 필터링을 먼저 적용
+    press(); // 점 간 간격을 늘림
+    std::cout << "Final size: " << map_in->size() << std::endl;
     view();
     save();
     return 0;
