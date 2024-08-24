@@ -71,37 +71,66 @@ Trajectory DWAPlanner::CalcTrajectory(float v, float y)
       /param traj Trajectory that we want to calculate the cost of
       \return cost float obstacle cost
     */
+
+// 현재 경로가 장애물과 얼마나 가까운지를 평가하여 장애물 비용을 계산
+// float DWAPlanner::CalcObstacleCost(Trajectory traj)
+// {
+//   // calc obstacle cost inf: collistion, 0:free
+//   int skip_n = 4; //skip some points of the trajectory
+//   float minr = std::numeric_limits<float>::max();
+
+//   // Evaluate distance to obstacles for evert point int he trajectory and 
+//   // make sure that the robot won't crash
+//   for (unsigned int ii = 0; ii < traj.size(); ii += skip_n)
+//   {
+//     for (unsigned int i = 0; i < ob_.size(); i++)
+//     {
+//         float ox = ob_[i][0];
+//         float oy = ob_[i][1];  
+//         float dx = traj[ii][0] - ox;
+//         float dy = traj[ii][1] - oy;
+
+//         float r = std::sqrt(dx * dx + dy * dy);
+//         if (r <= config_.robot_radius)
+//         {
+//           return std::numeric_limits<float>::max();
+//         }
+
+//         if (minr >= r)
+//         {
+//           minr = r;
+//         }
+//     }
+//   }
+//   return 1.0 / minr;
+// }
 float DWAPlanner::CalcObstacleCost(Trajectory traj)
 {
-  // calc obstacle cost inf: collistion, 0:free
-  int skip_n = 4; //skip some points of the trajectory
-  float minr = std::numeric_limits<float>::max();
+    float minr = std::numeric_limits<float>::max();
+    int skip_n = 4; // skip some points of the trajectory
 
-  // Evaluate distance to obstacles for evert point int he trajectory and 
-  // make sure that the robot won't crash
-  for (unsigned int ii = 0; ii < traj.size(); ii += skip_n)
-  {
-    for (unsigned int i = 0; i < ob_.size(); i++)
+    for (unsigned int ii = 0; ii < traj.size(); ii += skip_n)
     {
-        float ox = ob_[i][0];
-        float oy = ob_[i][1];  
-        float dx = traj[ii][0] - ox;
-        float dy = traj[ii][1] - oy;
-
-        float r = std::sqrt(dx * dx + dy * dy);
-        if (r <= config_.robot_radius)
+        for (const auto& obstacle : ob_)
         {
-          return std::numeric_limits<float>::max();
-        }
+            float dx = traj[ii][0] - obstacle[0]; // x 거리
+            float dy = traj[ii][1] - obstacle[1]; // y 거리
 
-        if (minr >= r)
-        {
-          minr = r;
+            float r = std::sqrt(dx * dx + dy * dy); // 2D 거리 계산
+            if (r <= config_.robot_radius)
+            {
+                return std::numeric_limits<float>::max(); // 충돌 감지
+            }
+
+            if (minr >= r)
+            {
+                minr = r; // 최소 거리 업데이트
+            }
         }
     }
-  }
-  return 1.0 / minr;
+    return 1.0 / minr; // 최소 거리의 역수 반환
 }
+
 
 //! CalcToGoalCost function
     /*!
@@ -186,38 +215,75 @@ Trajectory DWAPlanner::DWAControl()
       \param range_min Min posible distance possible in the scan distances
       \param range_max Max posible distance possible in the scan distances
     */
-void DWAPlanner::SetObstacles(std::vector<float> scan_distances, float angle_increment, float angle_min, float angle_max, float range_min, float range_max)
+
+// 로봇의 센서로부터 수집된 거리 데이터를 사용하여 장애물의 위치를 계산하고 저장
+// void DWAPlanner::SetObstacles(std::vector<float> scan_distances, float angle_increment, float angle_min, float angle_max, float range_min, float range_max)
+// {
+//   std::vector<float>::iterator d_ptr;
+//   // Iterate through scans and calculate location of points
+//   ob_.clear();
+//   float current_angle = angle_min;
+//   float min_dist = 10000.0f;
+//   Point closest_obstacle({min_dist, min_dist});
+
+//   // Calculate the point closest to the robot
+//   for (d_ptr = scan_distances.begin(); d_ptr < scan_distances.end(); d_ptr++)
+//   {
+//     if ((*d_ptr < range_max) && (*d_ptr > range_min))
+//     {
+//       float x_local = *d_ptr * cos(current_angle);
+//       float y_local = *d_ptr * sin(current_angle);
+//       float ox = x_[0] + x_local * cos(x_[2]) - y_local * sin(x_[2]);
+//       float oy = x_[1] + x_local * sin(x_[2]) + y_local * cos(x_[2]);
+
+//       if(*d_ptr <=min_dist){
+//         min_dist = *d_ptr;
+//         closest_obstacle = Point{{ox, oy}};
+//       }
+//       if (current_angle <= angle_max)
+//         current_angle += angle_increment;
+//     }
+//   }
+//   // Save closest obstacle in vector (save last 25 points)
+//   ob_.push_back(closest_obstacle);
+//     if(ob_.size()>=25)
+//       ob_.erase(ob_.begin());
+// }
+
+void DWAPlanner::SetObstacles(const std::vector<Point3D>& lidar_points, float range_min, float range_max)
 {
-  std::vector<float>::iterator d_ptr;
-  // Iterate through scans and calculate location of points
-  ob_.clear();
-  float current_angle = angle_min;
-  float min_dist = 10000.0f;
-  Point closest_obstacle({min_dist, min_dist});
+    ob_.clear(); // 장애물 벡터 초기화
+    float min_dist = std::numeric_limits<float>::max();
+    Point3D closest_obstacle({min_dist, min_dist, min_dist});
 
-  // Calculate the point closest to the robot
-  for (d_ptr = scan_distances.begin(); d_ptr < scan_distances.end(); d_ptr++)
-  {
-    if ((*d_ptr < range_max) && (*d_ptr > range_min))
+    // Calculate the closest obstacle
+    for (const auto& point : lidar_points)
     {
-      float x_local = *d_ptr * cos(current_angle);
-      float y_local = *d_ptr * sin(current_angle);
-      float ox = x_[0] + x_local * cos(x_[2]) - y_local * sin(x_[2]);
-      float oy = x_[1] + x_local * sin(x_[2]) + y_local * cos(x_[2]);
-
-      if(*d_ptr <=min_dist){
-        min_dist = *d_ptr;
-        closest_obstacle = Point{{ox, oy}};
-      }
-      if (current_angle <= angle_max)
-        current_angle += angle_increment;
+        // 장애물의 거리 계산
+        float distance = std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
+        
+        // 범위 필터링
+        if (distance < range_max && distance > range_min)
+        {
+            // 로봇의 위치와 장애물의 거리 계산
+            if (distance < min_dist)
+            {
+                min_dist = distance;
+                closest_obstacle = point; // 가장 가까운 장애물 위치 저장
+            }
+        }
     }
-  }
-  // Save closest obstacle in vector (save last 25 points)
-  ob_.push_back(closest_obstacle);
-    if(ob_.size()>=25)
-      ob_.erase(ob_.begin());
+
+    // 가장 가까운 장애물 저장
+    if (min_dist < std::numeric_limits<float>::max())
+    {
+        ob_.push_back(closest_obstacle);
+        if (ob_.size() >= 25)
+            ob_.erase(ob_.begin());
+    }
 }
+
+
 
 //! SetState function
     /*!
@@ -274,7 +340,7 @@ void DWAPlanner::PublishTrajectory(rclcpp::Publisher<visualization_msgs::msg::Ma
   marker.pose.position.z = 0;
   marker.pose.orientation.w = 1.0;
 
-  marker.scale.x = 1.0; // 선의 두께
+  marker.scale.x = 0.8; // 선의 두께
   marker.color.r = 1.0; // 빨간색
   marker.color.g = 0.0;
   marker.color.b = 0.0;

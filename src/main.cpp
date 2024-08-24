@@ -48,9 +48,10 @@ Node goal(24, 5); // 해상도에 맞춰 조정
 
 State init_state = {start.x(), start.y(), 0, 0, 0};
 
-Point goal_point = {goal.x(), goal.y()};
 
 DWAPlanner dwa(init_state); // 초기 DWA 생성
+
+int goal_index = 0;
 
 
 void topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
@@ -250,18 +251,32 @@ void findClosestNode(std::vector<Node>& path){
 // dwa 관련 함수
 void SetDWA()
 {
-    dwa.SetGoal(goal_point);    // 목적지 설정
+    Point goal_point = {global_path[goal_index].x(), global_path[goal_index].y()};
 
-     // 장애물 거리 데이터 설정 (가상의 거리 데이터 예시)
-    std::vector<float> scan_distances = {1.0, 1.5, 2.0, 0.5, 3.0}; // 장애물 거리 데이터
-    float angle_increment = M_PI / 180.0; // 1도 단위 각도 증가
-    float angle_min = -M_PI / 4; // -45도
-    float angle_max = M_PI / 4; // 45도
+    dwa.SetGoal(goal_point);    // 목적지 설정
+    goal_index++;
+    
+    std::cout << global_path[goal_index].x() << " " << global_path[goal_index].y() << "\n";
+
+    // 3D LIDAR에서 수집된 장애물의 예시
+    std::vector<Point3D> obstacles;
+
+    // 장애물 추가
+    obstacles.push_back(Point3D(1.0f, 2.0f, 0.0f)); // (1.0, 2.0, 0.0)
+    obstacles.push_back(Point3D(3.0f, -1.0f, 0.0f)); // (3.0, -1.0, 0.0)
+    obstacles.push_back(Point3D(-2.0f, 4.0f, 0.0f)); // (-2.0, 4.0, 0.0)
+    obstacles.push_back(Point3D(0.5f, 1.5f, 0.0f)); // (0.5, 1.5, 0.0)
+    obstacles.push_back(Point3D(-1.0f, -3.0f, 0.0f)); // (-1.0, -3.0, 0.0)
+
+    // float angle_increment = M_PI / 180.0; // 1도 단위 각도 증가
+    // float angle_min = -M_PI / 4; // -45도
+    // float angle_max = M_PI / 4; // 45도
+
     float range_min = 0.2; // 최소 거리
     float range_max = 5.0; // 최대 거리
 
     // 장애물 정보 업데이트
-    dwa.SetObstacles(scan_distances, angle_increment, angle_min, angle_max, range_min, range_max);
+    dwa.SetObstacles(scan_distance, range_min, range_max);
 
     // 로봇의 제어 명령을 얻고 출력
     
@@ -355,7 +370,7 @@ int main(int argc, char** argv) {
 
   
     rclcpp::TimerBase::SharedPtr timer = node->create_wall_timer(
-        std::chrono::milliseconds(100),
+        std::chrono::milliseconds(500), // 0.5초에 한번씩 계산
         []() {
             publishCostmapAndPath();
             publishStaticTransform();
