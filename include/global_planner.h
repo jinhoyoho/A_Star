@@ -19,7 +19,7 @@ class GlobalPlanner
 {
 public:
   
-  GlobalPlanner(nav2_costmap_2d::Costmap2D* costmap) : factor_(0.5f), map_size_{ 0 }
+  GlobalPlanner(nav2_costmap_2d::Costmap2D* costmap) : map_size_{ 0 }, factor_(0.5f)
   {
     costmap_ = costmap;
     map_size_ = static_cast<int>(costmap->getSizeInCellsX() * costmap->getSizeInCellsY());

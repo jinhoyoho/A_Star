@@ -8,13 +8,22 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <tf2_ros/static_transform_broadcaster.h>
-#include <cstddef> // size_t를 사용하기 위해 추가
+#include <cstddef>
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include <nav2_core/controller.hpp>
+#include <dwb_core/dwb_local_planner.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include "dwa_planner.h"
+#include <cmath>
+
 
 rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr path_publisher_;
 rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr node_publisher_;
 rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_publisher_;
 rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr multi_array_publisher_;
+rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr trajectory_publisher_;
 
 std::unique_ptr<nav2_costmap_2d::Costmap2D> costmap_;
 std::unique_ptr<global_planner::AStar> a_star_;
@@ -33,6 +42,16 @@ double origin_y = -60;  // 원점 좌표
 double current_x, current_y; // 현재 x, y 좌표
 double heading; // 헤딩 값
 double ld_x, ld_y; // ld x, y 좌표
+
+Node start((-1)*origin_x, (-1)*origin_y);
+Node goal(24, 5); // 해상도에 맞춰 조정
+
+State init_state = {start.x(), start.y(), 0, 0, 0};
+
+Point goal_point = {goal.x(), goal.y()};
+
+DWAPlanner dwa(init_state); // 초기 DWA 생성
+
 
 void topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     current_x = msg->data[0];   // 현재 x좌표
@@ -201,7 +220,7 @@ void publishCostmap() {
 void publish_float64_multiarray() {
     // 발행할 메시지 생성
     std_msgs::msg::Float64MultiArray msg;
-    msg.data = {ld_x, ld_y, arrive_flag}; // 데이터 초기화
+    msg.data = {ld_x, ld_y, static_cast<double>(arrive_flag)}; // 데이터 초기화
 
     // 메시지 발행
     multi_array_publisher_->publish(msg);
@@ -227,11 +246,49 @@ void findClosestNode(std::vector<Node>& path){
     publish_float64_multiarray(); // publish
 }
 
-void publishCostmapAndPath() {
-    publishCostmap();
 
-    Node start((-1)*origin_x, (-1)*origin_y);
-    Node goal(24, 5); // 해상도에 맞춰 조정
+// dwa 관련 함수
+void SetDWA()
+{
+    dwa.SetGoal(goal_point);    // 목적지 설정
+
+     // 장애물 거리 데이터 설정 (가상의 거리 데이터 예시)
+    std::vector<float> scan_distances = {1.0, 1.5, 2.0, 0.5, 3.0}; // 장애물 거리 데이터
+    float angle_increment = M_PI / 180.0; // 1도 단위 각도 증가
+    float angle_min = -M_PI / 4; // -45도
+    float angle_max = M_PI / 4; // 45도
+    float range_min = 0.2; // 최소 거리
+    float range_max = 5.0; // 최대 거리
+
+    // 장애물 정보 업데이트
+    dwa.SetObstacles(scan_distances, angle_increment, angle_min, angle_max, range_min, range_max);
+
+    // 로봇의 제어 명령을 얻고 출력
+    
+    Control command = dwa.GetCmd(); // DWAPlanner에서 명령 얻기
+
+    // // 현재 명령 출력
+    std::cout << " | Linear Velocity: " << command[0] 
+              << " | Angular Velocity: " << command[1] << std::endl;
+
+    // 로봇 상태 업데이트 (모션 적용)
+    init_state = dwa.Motion(init_state, command, 0.1); // dt = 0.1초
+    dwa.SetState(init_state); // 업데이트된 상태 설정
+
+    dwa.PublishTrajectory(trajectory_publisher_);
+
+    // 목표에 도달했는지 확인
+    if (sqrt(pow(goal_point[0] - init_state[0], 2) + pow(goal_point[1] - init_state[1], 2)) < 0.5) {
+        std::cout << "Goal reached!" << std::endl;
+        arrive_flag = true;
+    }
+    
+}
+
+
+void publishCostmapAndPath() {
+
+    publishCostmap();
 
     visualizeStartAndGoal(start, goal); // 시작점과 목표점 시각화
 
@@ -259,8 +316,10 @@ void publishCostmapAndPath() {
         // 경로가 계산되었다면 지속적으로 시각화, ld 계산
         visualizePath(global_path);
         findClosestNode(global_path);
+        SetDWA();
     }
 }
+
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
@@ -269,34 +328,32 @@ int main(int argc, char** argv) {
     path_publisher_ = node->create_publisher<visualization_msgs::msg::Marker>("a_star", 10);
     node_publisher_ = node->create_publisher<visualization_msgs::msg::Marker>("node", 10);
     costmap_publisher_ = node->create_publisher<nav_msgs::msg::OccupancyGrid>("costmap", 10);
-    multi_array_publisher_ = node->create_publisher<std_msgs::msg::Float64MultiArray>(
-        "xyflag",  // 발행할 토픽 이름
-        10                  // 큐 크기
-    );
+    multi_array_publisher_ = node->create_publisher<std_msgs::msg::Float64MultiArray>("xyflag", 10);
+    trajectory_publisher_ = node->create_publisher<visualization_msgs::msg::MarkerArray>("local_path", 10);
 
-
-    auto subscription = node->create_subscription<std_msgs::msg::Float64MultiArray>(
-        "your_topic_name",  // 구독할 토픽 이름
-        10,                 // 큐 크기
-        topic_callback      // 콜백 함수
-    );
+    auto subscription = node->create_subscription<std_msgs::msg::Float64MultiArray>("your_topic_name", 10, topic_callback);
     
+
     unsigned int cells_size_x = 110;
     unsigned int cells_size_y = 110;
     double resolution = 1;
 
+
     costmap_ = std::make_unique<nav2_costmap_2d::Costmap2D>(
         cells_size_x, cells_size_y, resolution, origin_x, origin_y);
 
+
     static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(node);
+
 
     // PCD 파일 경로 설정
     std::string pcd_file_path = "/home/jinho/Downloads/map_2d.pcd";
     loadPointCloudFromPCD(pcd_file_path);
 
+
     a_star_ = std::make_unique<global_planner::AStar>(costmap_.get(), false, true);
 
-
+  
     rclcpp::TimerBase::SharedPtr timer = node->create_wall_timer(
         std::chrono::milliseconds(100),
         []() {
