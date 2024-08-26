@@ -39,15 +39,15 @@ bool path_computed = false; // 경로가 계산되었는지 여부를 확인하�
 bool arrive_flag = false; // 도착 플래그
 
 double wx, wy;  // 월드 좌표
-double origin_x = -50;
-double origin_y = -60;  // 원점 좌표
+double origin_x = -250;
+double origin_y = -150;  // 원점 좌표
 
 double current_x, current_y; // 현재 x, y 좌표
 double heading; // 헤딩 값
 double ld_x, ld_y; // ld x, y 좌표
 
 Node start((-1)*origin_x, (-1)*origin_y);
-Node goal(24, 5); // 해상도에 맞춰 조정
+Node goal(150, 150); // 해상도에 맞춰 조정
 
 State init_state = {start.x(), start.y(), 0, 0, 0};
 
@@ -304,8 +304,10 @@ void SetDWA()
         goal_index++;
     }
 
-    if (global_path.size() <= goal_index)
+    if (global_path.size() <= goal_index){
         arrive_flag = true;
+        goal_index=0;
+    }
 }
 
 
@@ -357,8 +359,8 @@ int main(int argc, char** argv) {
     auto subscription = node->create_subscription<std_msgs::msg::Float64MultiArray>("pose", 10, topic_callback);
     
 
-    unsigned int cells_size_x = 110;
-    unsigned int cells_size_y = 110;
+    unsigned int cells_size_x = 300;
+    unsigned int cells_size_y = 250;
     double resolution = 1;
 
 
