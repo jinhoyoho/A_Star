@@ -46,7 +46,7 @@ double current_x, current_y; // 현재 x, y 좌표
 double heading; // 헤딩 값
 double ld_x, ld_y; // ld x, y 좌표
 
-Node start((-1)*origin_x, (-1)*origin_y);
+Node start((-1)*origin_x + current_x, (-1)*origin_y + current_y);
 Node goal(150, 150); // 해상도에 맞춰 조정
 
 State init_state = {start.x(), start.y(), 0, 0, 0};
@@ -54,7 +54,7 @@ State init_state = {start.x(), start.y(), 0, 0, 0};
 
 DWAPlanner dwa(init_state); // 초기 DWA 생성
 
-int goal_index = 0;
+size_t goal_index = 0;
 
 
 void topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
@@ -62,7 +62,11 @@ void topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     current_y = msg->data[1];   // 현재 y좌표
     heading = msg->data[2];     // 현재 헤딩값
 
-    // std::cout << current_x << " " << current_y << " " << heading << "\n";
+    start.set_x((-1)*origin_x + current_x);
+    start.set_y((-1)*origin_y + current_y);
+
+    std::cout << current_x << " " << current_y << " " << heading << "\n";
+    
 }
 
 // Static Transform Publisher 추가
@@ -230,20 +234,26 @@ void publish_float64_multiarray() {
     multi_array_publisher_->publish(msg);
 }
 
-void findClosestNode(std::vector<Node>& path){
-
+void findClosestNode(std::vector<Node>& path, size_t& start_index) {
     double min_distance = std::numeric_limits<double>::max(); // 초기 최소 거리
+    size_t closest_index = start_index; // 가장 가까운 노드의 인덱스 초기화
 
-    for (const auto& node : path) {
-        double distance = std::sqrt(std::pow(node.x() - current_x, 2) + std::pow(node.y() - current_y, 2));
+    // start_index부터 시작하여 path를 순회
+    for (size_t i = start_index; i < path.size(); ++i) {
+        const auto& node = path[i];
+        double distance = std::sqrt(std::pow(node.x() - start.x(), 2) + std::pow(node.y() - start.y(), 2));
         
         // 최소 거리 갱신
         if (distance < min_distance) {
             min_distance = distance;
             ld_x = node.x();
             ld_y = node.y();
+            closest_index = i; // 가장 가까운 노드의 인덱스 저장
         }
     }
+
+    // 가장 가까운 노드 인덱스를 다음 검색을 위해 업데이트
+    start_index = closest_index + 1; // 다음 검색을 위해 인덱스를 업데이트
 
     // std::cout << "ld: " << ld_x << " " << ld_y << "\n";
 
@@ -254,21 +264,21 @@ void findClosestNode(std::vector<Node>& path){
 // dwa 관련 함수
 void SetDWA()
 {
-    Point goal_point = {global_path[goal_index].x(), global_path[goal_index].y()};
+    Point goal_point = {ld_x, ld_y};
 
     dwa.SetGoal(goal_point);    // 목적지 설정
     
-    std::cout << global_path[goal_index].x() << " " << global_path[goal_index].y() << "\n";
+    std::cout << ld_x << " " << ld_y << "\n";
 
     // PCL 포인트 클라우드 객체 생성
     pcl::PointCloud<pcl::PointXYZ>::Ptr lidar_points(new pcl::PointCloud<pcl::PointXYZ>);
 
-    // 샘플 3D LIDAR 데이터 추가
-    lidar_points->points.push_back(pcl::PointXYZ(1.0f, 2.0f, 0.0f)); // 유효한 장애물
-    lidar_points->points.push_back(pcl::PointXYZ(3.0f, -1.0f, 0.0f)); // 유효한 장애물
-    lidar_points->points.push_back(pcl::PointXYZ(0.1f, 0.1f, 0.0f)); // 너무 가까운 장애물 (0.1m)
-    lidar_points->points.push_back(pcl::PointXYZ(6.0f, 6.0f, 0.0f)); // 너무 먼 장애물 (6.0m)
-    lidar_points->points.push_back(pcl::PointXYZ(-2.0f, 4.0f, 0.0f)); // 유효한 장애물
+    // // 샘플 3D LIDAR 데이터 추가
+    // lidar_points->points.push_back(pcl::PointXYZ(1.0f, 2.0f, 0.0f)); // 유효한 장애물
+    // lidar_points->points.push_back(pcl::PointXYZ(3.0f, -1.0f, 0.0f)); // 유효한 장애물
+    // lidar_points->points.push_back(pcl::PointXYZ(0.1f, 0.1f, 0.0f)); // 너무 가까운 장애물 (0.1m)
+    // lidar_points->points.push_back(pcl::PointXYZ(6.0f, 6.0f, 0.0f)); // 너무 먼 장애물 (6.0m)
+    // lidar_points->points.push_back(pcl::PointXYZ(-2.0f, 4.0f, 0.0f)); // 유효한 장애물
     // 포인트 클라우드의 크기 설정
     lidar_points->width = lidar_points->points.size();
     lidar_points->height = 1; // 단일 행의 포인트 클라우드
@@ -288,9 +298,9 @@ void SetDWA()
     
     Control command = dwa.GetCmd(); // DWAPlanner에서 명령 얻기
 
-    // // 현재 명령 출력
-    std::cout << " | Linear Velocity: " << command[0] 
-              << " | Angular Velocity: " << command[1] << std::endl;
+    // 현재 명령 출력
+    // std::cout << " | Linear Velocity: " << command[0] 
+    //           << " | Angular Velocity: " << command[1] << std::endl;
 
     // 로봇 상태 업데이트 (모션 적용)
     init_state = dwa.Motion(init_state, command, 0.1); // dt = 0.1초
@@ -299,10 +309,17 @@ void SetDWA()
     dwa.PublishTrajectory(trajectory_publisher_);
 
     // 목표에 도달했는지 확인
+    // if (sqrt(pow(goal_point[0] - init_state[0], 2) + pow(goal_point[1] - init_state[1], 2)) < 0.5) {
+    //     std::cout << "Goal reached!" << std::endl;
+    //     goal_index++;
+    // }
+
     if (sqrt(pow(goal_point[0] - init_state[0], 2) + pow(goal_point[1] - init_state[1], 2)) < 0.5) {
         std::cout << "Goal reached!" << std::endl;
         goal_index++;
     }
+
+    
 
     if (global_path.size() <= goal_index){
         arrive_flag = true;
@@ -340,7 +357,7 @@ void publishCostmapAndPath() {
      {      
         // 경로가 계산되었다면 지속적으로 시각화, ld 계산
         visualizePath(global_path);
-        findClosestNode(global_path);
+        findClosestNode(global_path, goal_index);
         SetDWA();
     }
 }

@@ -1,15 +1,36 @@
-
 #include "dwa_planner.h"
 
 
-
-DWAPlanner::DWAPlanner(State init_state)
+DWAPlanner::DWAPlanner(State init_state) : Node("dwa_planner")
 {
-  std::cout << "DWAPLanner" << std::endl;
+
+  auto pose_subscriber = this->create_subscription<std_msgs::msg::Float64MultiArray>(
+        "pose", 10, std::bind(&DWAPlanner::poseCallback, this, std::placeholders::_1));
+  
+  // std::cout << "DWAPLanner" << std::endl;
   x_ = init_state;
   goal_ = Point({{init_state[0], init_state[1]}});
   u_ = Control({{0.0, 0.0}});
   trajectory_.push_back(x_);
+}
+
+void DWAPlanner::poseCallback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
+    // 수신한 메시지로 상태 업데이트
+    x_[0] = msg->data[0]; // x 좌표
+    x_[1] = msg->data[1]; // y 좌표
+    std::cout << "성공!!!" << "\n";
+    
+    // msg->orientation을 이용하여 각도 업데이트
+    // tf2::Quaternion q(
+    //     msg->orientation.x,
+    //     msg->orientation.y,
+    //     msg->orientation.z,
+    //     msg->orientation.w);
+    
+    // 쿼터니언을 오일러 각도로 변환
+    // double roll, pitch, yaw;
+    // tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+    // x_[2] = yaw; // 각도 (yaw) 업데이트
 }
 
 //! Motion function

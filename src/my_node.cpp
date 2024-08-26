@@ -27,7 +27,7 @@ void roi()
 void voxel()
 {
     pcl::VoxelGrid<pcl::PointXYZ> sor;
-    sor.setLeafSize(0.3, 0.3, 0.3);
+    sor.setLeafSize(0.1, 0.1, 0.1);
     sor.setInputCloud(map_in);
     sor.filter(*map_in);
 }

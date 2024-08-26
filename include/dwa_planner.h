@@ -14,6 +14,8 @@
 #include <limits>
 #include <cmath>
 
+#include <std_msgs/msg/float64_multi_array.hpp>
+
 
 #define PI 3.141592653
 
@@ -45,7 +47,7 @@ public:
 };
 
 /*! DWAPlanner class */
-class DWAPlanner{
+class DWAPlanner : public rclcpp::Node{
     public:
         DWAPlanner(State init_state);
         // void SetObstacles(std::vector<float> scan_distances, float angle_increment, float angle_min, 
@@ -56,14 +58,18 @@ class DWAPlanner{
         void SetState(State state);       //!< Stores the current state of the robot for planning
         void SetGoal(Point goal);   /*!< Motion command (speed and yaw rate) defined by DWA */
         // Obstacle ob_;                   /*!< Vector with scan points corresponding to obstacles*/
+        void poseCallback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
+        
+
+        
         
         std::vector<pcl::PointXYZ> ob_; // 장애물 저장 벡터
-        
+
         
         Trajectory trajectory_;           //!< Returns current trajectory to be followed by the robot according to the DWA
         Control GetCmd();                 //!< Returns speed and yaw_rate commands defined by the DWA
 
-   
+
         State Motion(State x, Control u, float dt);   //!< Executes a motion simulation step to predict robot's state
         Window CalcDynamicWindow();                   //!< Calculates the dynamic window depending on constrains defined in Config class
         Trajectory CalcTrajectory(float v, float y);  //!< Calculates trajectory followed with speed and yaw_rate
@@ -71,6 +77,9 @@ class DWAPlanner{
         float CalcToGoalCost(Trajectory traj);        //!< Calculate cost depending on distance to goal of the current trajectory
         Trajectory CalcFinalInput(Window dw);         //!< Calculate motion command by evaluating the cost of trajectories inside window
         Trajectory DWAControl();                      //!< Calculate dynamic window and trajectory with the smallest cost
+
+
+
 
         State x_;                       /*!< Vector containing state of the robot (position and velocities) */
         Point goal_;                    /*!< Vector containing x and y coordinates of the current goal */
