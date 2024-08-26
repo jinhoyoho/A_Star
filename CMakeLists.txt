@@ -42,7 +42,8 @@ add_library(${PROJECT_NAME}
 
 include_directories(include
  ${nav_msgs_INCLUDE_DIRS}
- ${nav2_core_INCLUDE_DIRS})
+ ${nav2_core_INCLUDE_DIRS}
+ ${PCL_INCLUDE_DIRS})
 
 
 # 헤더 파일 경로 추가
@@ -61,6 +62,14 @@ add_executable(main src/main.cpp src/a_star.cpp src/nodes.cpp src/global_planner
 ament_target_dependencies(main rclcpp nav2_costmap_2d geometry_msgs visualization_msgs PCL pcl_conversions)
 target_link_libraries(main ${PCL_LIBRARIES})
 
+add_executable(relocalization src/relocalization.cpp)
+ament_target_dependencies(relocalization rclcpp std_msgs sensor_msgs PCL pcl_conversions visualization_msgs)
+target_link_libraries(relocalization ${PCL_LIBRARIES})
+
+add_executable(map2d src/map2d.cpp)
+ament_target_dependencies(map2d rclcpp std_msgs sensor_msgs PCL pcl_conversions)
+target_link_libraries(map2d ${PCL_LIBRARIES})
+
 # Link dependencies to the library
 ament_target_dependencies(${PROJECT_NAME} 
   rclcpp 
@@ -75,6 +84,8 @@ ament_target_dependencies(${PROJECT_NAME}
 # Install targets
 install(TARGETS
   main
+  relocalization
+  map2d
   ${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )
