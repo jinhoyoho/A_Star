@@ -31,8 +31,8 @@ def pose_callback(input_rosmsg):
 def timer_callback():
     error = goal_theta - theta 
     cmd_vel = Twist()
-    cmd_vel.angular.z = error
-    cmd_vel.linear.x = 1.0
+    cmd_vel.angular.z = error 
+    cmd_vel.linear.x = 1.0 * 0.3
 
     if stop_flag :
         cmd_vel.angular.z = 0
