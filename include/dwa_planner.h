@@ -25,7 +25,7 @@ using Obstacle = std::vector<std::array<float, 2>>;
 using State = std::array<float, 5>; // x, y,  각도 (orientation) (라디안), 선형 속도, 각속도
 using Window = std::array<float, 4>;
 using Point = std::array<float, 2>;
-using Control = std::array<float, 2>;
+using Control = std::array<float, 2>; // 선형 속도, 각속도
 
 /*! Configuration class with the parameters of the algorithm */
 class Config{
@@ -68,7 +68,7 @@ class DWAPlanner {
         Control GetCmd();                 //!< Returns speed and yaw_rate commands defined by the DWA
 
 
-        State Motion(State x, Control u, float dt);   //!< Executes a motion simulation step to predict robot's state
+        State Motion(State x, double current_x, double current_y, double heading);   //!< Executes a motion simulation step to predict robot's state
         Window CalcDynamicWindow();                   //!< Calculates the dynamic window depending on constrains defined in Config class
         Trajectory CalcTrajectory(float v, float y);  //!< Calculates trajectory followed with speed and yaw_rate
         float CalcObstacleCost(Trajectory traj);      //!< Calculate obstacle cost defined by the current trajectory

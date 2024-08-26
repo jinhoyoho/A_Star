@@ -64,9 +64,6 @@ void topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
 
     start.set_x((-1)*origin_x + 3*current_x);
     start.set_y((-1)*origin_y + 3*current_y);
-
-    std::cout << (-1)*origin_x + 3*current_x << " " << (-1)*origin_y + 3*current_y << " " << heading << "\n";
-    
 }
 
 // Static Transform Publisher 추가
@@ -107,8 +104,6 @@ void visualizePath(const std::vector<Node>& path) {
         p.x = node.x(); // Node 클래스의 x() 메서드 사용
         p.y = node.y(); // Node 클래스의 y() 메서드 사용
         p.z = 0;
-
-
         marker.points.push_back(p);
     }
 
@@ -255,9 +250,30 @@ void findClosestNode(std::vector<Node>& path, size_t& start_index) {
     // 가장 가까운 노드 인덱스를 다음 검색을 위해 업데이트
     start_index = closest_index + 1; // 다음 검색을 위해 인덱스를 업데이트
 
-    // std::cout << "ld: " << ld_x << " " << ld_y << "\n";
-
     publish_float64_multiarray(); // publish
+
+    visualization_msgs::msg::Marker local_goal;
+    local_goal.header.frame_id = "map";
+    local_goal.header.stamp = rclcpp::Clock().now();
+    local_goal.ns = "local_goal";
+    local_goal.id = 1;
+    local_goal.type = visualization_msgs::msg::Marker::SPHERE;
+    local_goal.action = visualization_msgs::msg::Marker::ADD;
+    local_goal.scale.x = 1; // 크기
+    local_goal.scale.y = 1; // 크기
+    local_goal.scale.z = 0; // 크기
+    local_goal.color.a = 1.0; // 불투명도
+    local_goal.color.g = 1.0; // 초록색
+    local_goal.color.r = 1.0; // 빨간색
+    local_goal.color.b = 0.0; // 파란색
+
+    // 시작점 위치 설정
+    local_goal.pose.position.x = ld_x;
+    local_goal.pose.position.y = ld_y;
+    local_goal.pose.position.z = 0;
+
+    node_publisher_->publish(local_goal);
+
 }
 
 
@@ -268,7 +284,7 @@ void SetDWA()
 
     dwa.SetGoal(goal_point);    // 목적지 설정
     
-    std::cout << ld_x << " " << ld_y << "\n";
+    std::cout << "목적지: " << ld_x << " " << ld_y << "\n";
 
     // PCL 포인트 클라우드 객체 생성
     pcl::PointCloud<pcl::PointXYZ>::Ptr lidar_points(new pcl::PointCloud<pcl::PointXYZ>);
@@ -298,12 +314,8 @@ void SetDWA()
     
     Control command = dwa.GetCmd(); // DWAPlanner에서 명령 얻기
 
-    // 현재 명령 출력
-    // std::cout << " | Linear Velocity: " << command[0] 
-    //           << " | Angular Velocity: " << command[1] << std::endl;
-
     // 로봇 상태 업데이트 (모션 적용)
-    init_state = dwa.Motion(init_state, command, 0.1); // dt = 0.1초
+    init_state = dwa.Motion(init_state, current_x, current_y, heading); // dt = 0.1초
     dwa.SetState(init_state); // 업데이트된 상태 설정
 
     dwa.PublishTrajectory(trajectory_publisher_);
@@ -315,7 +327,7 @@ void SetDWA()
     // }
 
     if (sqrt(pow(goal_point[0] - init_state[0], 2) + pow(goal_point[1] - init_state[1], 2)) < 0.5) {
-        std::cout << "Goal reached!" << std::endl;
+        std::cout << "Goal reached!!!!!!" << "\n";
         goal_index++;
     }
 
@@ -389,7 +401,8 @@ int main(int argc, char** argv) {
 
 
     // PCD 파일 경로 설정
-    std::string pcd_file_path = "/home/nvidia/ros2_ws/src/my_package/map_2d.pcd";
+    // std::string pcd_file_path = "/home/nvidia/ros2_ws/src/my_package/map_2d.pcd";
+    std::string pcd_file_path = "/home/jinho/Downloads/map_2d.pcd";
     loadPointCloudFromPCD(pcd_file_path);
 
 
