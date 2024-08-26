@@ -1,11 +1,11 @@
 #include "dwa_planner.h"
 
 
-DWAPlanner::DWAPlanner(State init_state) : Node("dwa_planner")
+DWAPlanner::DWAPlanner(State init_state) // : Node("dwa_planner")
 {
 
-  auto pose_subscriber = this->create_subscription<std_msgs::msg::Float64MultiArray>(
-        "pose", 10, std::bind(&DWAPlanner::poseCallback, this, std::placeholders::_1));
+  //auto pose_subscriber = this->create_subscription<std_msgs::msg::Float64MultiArray>(
+    //    "pose", 10, std::bind(&DWAPlanner::poseCallback, this, std::placeholders::_1));
   
   // std::cout << "DWAPLanner" << std::endl;
   x_ = init_state;
@@ -14,11 +14,12 @@ DWAPlanner::DWAPlanner(State init_state) : Node("dwa_planner")
   trajectory_.push_back(x_);
 }
 
-void DWAPlanner::poseCallback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
+//void DWAPlanner::poseCallback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     // 수신한 메시지로 상태 업데이트
-    x_[0] = msg->data[0]; // x 좌표
-    x_[1] = msg->data[1]; // y 좌표
-    std::cout << "성공!!!" << "\n";
+  //  x_[0] = 250 + 3*msg->data[0]; // x 좌표
+    // x_[1] = 150 + 3*msg->data[1]; // y 좌표
+    // x_[2] = msg->data[2];
+    // std::cout << "성공!!!" << "\n";
     
     // msg->orientation을 이용하여 각도 업데이트
     // tf2::Quaternion q(
@@ -31,7 +32,7 @@ void DWAPlanner::poseCallback(const std_msgs::msg::Float64MultiArray::SharedPtr 
     // double roll, pitch, yaw;
     // tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
     // x_[2] = yaw; // 각도 (yaw) 업데이트
-}
+//}
 
 //! Motion function
     /*!
@@ -44,9 +45,9 @@ void DWAPlanner::poseCallback(const std_msgs::msg::Float64MultiArray::SharedPtr 
 State DWAPlanner::Motion(State x, Control u, float dt)
 {
   x[2] += 1.9*u[1] * dt; // 각도 업데이트
-  x[0] += 0.9*u[0] * std::cos(x[2]) * dt; // x 위치 업데이트
-  x[1] += 0.9*u[0] * std::sin(x[2]) * dt; // y 위치 업데이트
-  x[3] = 0.9*u[0]; // 선형 속도 업데이트
+  x[0] += 1.9*u[0] * std::cos(x[2]) * dt; // x 위치 업데이트
+  x[1] += 1.9*u[0] * std::sin(x[2]) * dt; // y 위치 업데이트
+  x[3] = 1.9*u[0]; // 선형 속도 업데이트
   x[4] = 1.9*u[1]; // 각속도 업데이트
   return x;
 }

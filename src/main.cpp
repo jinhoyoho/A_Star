@@ -46,7 +46,7 @@ double current_x, current_y; // 현재 x, y 좌표
 double heading; // 헤딩 값
 double ld_x, ld_y; // ld x, y 좌표
 
-Node start((-1)*origin_x + current_x, (-1)*origin_y + current_y);
+Node start((-1)*origin_x + 3*current_x, (-1)*origin_y + 3*current_y);
 Node goal(150, 150); // 해상도에 맞춰 조정
 
 State init_state = {start.x(), start.y(), 0, 0, 0};
@@ -62,10 +62,10 @@ void topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     current_y = msg->data[1];   // 현재 y좌표
     heading = msg->data[2];     // 현재 헤딩값
 
-    start.set_x((-1)*origin_x + current_x);
-    start.set_y((-1)*origin_y + current_y);
+    start.set_x((-1)*origin_x + 3*current_x);
+    start.set_y((-1)*origin_y + 3*current_y);
 
-    std::cout << current_x << " " << current_y << " " << heading << "\n";
+    std::cout << (-1)*origin_x + 3*current_x << " " << (-1)*origin_y + 3*current_y << " " << heading << "\n";
     
 }
 
@@ -389,7 +389,7 @@ int main(int argc, char** argv) {
 
 
     // PCD 파일 경로 설정
-    std::string pcd_file_path = "/home/jinho/Downloads/map_2d.pcd";
+    std::string pcd_file_path = "/home/nvidia/ros2_ws/src/my_package/map_2d.pcd";
     loadPointCloudFromPCD(pcd_file_path);
 
 

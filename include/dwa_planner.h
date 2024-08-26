@@ -47,7 +47,7 @@ public:
 };
 
 /*! DWAPlanner class */
-class DWAPlanner : public rclcpp::Node{
+class DWAPlanner {
     public:
         DWAPlanner(State init_state);
         // void SetObstacles(std::vector<float> scan_distances, float angle_increment, float angle_min, 
@@ -58,9 +58,7 @@ class DWAPlanner : public rclcpp::Node{
         void SetState(State state);       //!< Stores the current state of the robot for planning
         void SetGoal(Point goal);   /*!< Motion command (speed and yaw rate) defined by DWA */
         // Obstacle ob_;                   /*!< Vector with scan points corresponding to obstacles*/
-        void poseCallback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
-        
-
+        // void poseCallback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
         
         
         std::vector<pcl::PointXYZ> ob_; // 장애물 저장 벡터

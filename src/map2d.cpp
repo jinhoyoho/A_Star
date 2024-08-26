@@ -10,7 +10,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr map_in(new pcl::PointCloud<pcl::PointXYZ>())
 void load_map()
 {
     // PCD 파일을 로드
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/leesh/Downloads/service_LOAM/GlobalMap.pcd", *map_in) == -1)
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/nvidia/ros2_ws/src/my_package/GlobalMap.pcd", *map_in) == -1)
     // if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/leesh/Downloads/GlobalMap.pcd", *map_in) == -1)
     {
         return ;
@@ -63,7 +63,7 @@ void view()
 
 void save()
 {
-    pcl::io::savePCDFileASCII("/home/leesh/Downloads/service_LOAM/map_2d.pcd", *map_in);
+    pcl::io::savePCDFileASCII("/home/nvidia/ros2_ws/src/my_package/map_2d.pcd", *map_in);
 }
 
 int main(int argc, char *argv[])
