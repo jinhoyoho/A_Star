@@ -17,6 +17,9 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include "dwa_planner.h"
 #include <cmath>
+#include <pcl/point_cloud.h>
+#include <vector>
+#include <limits>
 
 
 rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr path_publisher_;
@@ -167,7 +170,7 @@ void loadPointCloudFromPCD(const std::string& file_path) {
     unsigned int mx, my;
     for (const auto& point : cloud) {
         // 월드 좌표를 맵 좌표로 변환
-        if (costmap_->worldToMap(point.x*3, 3*point.y, mx, my)) {
+        if (costmap_->worldToMap(point.x*3, point.y*3, mx, my)) {
             // 해당 위치에 장애물 설정
             costmap_->setCost(mx, my, nav2_costmap_2d::LETHAL_OBSTACLE);
             
@@ -254,19 +257,22 @@ void SetDWA()
     Point goal_point = {global_path[goal_index].x(), global_path[goal_index].y()};
 
     dwa.SetGoal(goal_point);    // 목적지 설정
-    goal_index++;
     
     std::cout << global_path[goal_index].x() << " " << global_path[goal_index].y() << "\n";
 
-    // 3D LIDAR에서 수집된 장애물의 예시
-    std::vector<Point3D> obstacles;
+    // PCL 포인트 클라우드 객체 생성
+    pcl::PointCloud<pcl::PointXYZ>::Ptr lidar_points(new pcl::PointCloud<pcl::PointXYZ>);
 
-    // 장애물 추가
-    obstacles.push_back(Point3D(1.0f, 2.0f, 0.0f)); // (1.0, 2.0, 0.0)
-    obstacles.push_back(Point3D(3.0f, -1.0f, 0.0f)); // (3.0, -1.0, 0.0)
-    obstacles.push_back(Point3D(-2.0f, 4.0f, 0.0f)); // (-2.0, 4.0, 0.0)
-    obstacles.push_back(Point3D(0.5f, 1.5f, 0.0f)); // (0.5, 1.5, 0.0)
-    obstacles.push_back(Point3D(-1.0f, -3.0f, 0.0f)); // (-1.0, -3.0, 0.0)
+    // 샘플 3D LIDAR 데이터 추가
+    lidar_points->points.push_back(pcl::PointXYZ(1.0f, 2.0f, 0.0f)); // 유효한 장애물
+    lidar_points->points.push_back(pcl::PointXYZ(3.0f, -1.0f, 0.0f)); // 유효한 장애물
+    lidar_points->points.push_back(pcl::PointXYZ(0.1f, 0.1f, 0.0f)); // 너무 가까운 장애물 (0.1m)
+    lidar_points->points.push_back(pcl::PointXYZ(6.0f, 6.0f, 0.0f)); // 너무 먼 장애물 (6.0m)
+    lidar_points->points.push_back(pcl::PointXYZ(-2.0f, 4.0f, 0.0f)); // 유효한 장애물
+    // 포인트 클라우드의 크기 설정
+    lidar_points->width = lidar_points->points.size();
+    lidar_points->height = 1; // 단일 행의 포인트 클라우드
+
 
     // float angle_increment = M_PI / 180.0; // 1도 단위 각도 증가
     // float angle_min = -M_PI / 4; // -45도
@@ -276,7 +282,7 @@ void SetDWA()
     float range_max = 5.0; // 최대 거리
 
     // 장애물 정보 업데이트
-    dwa.SetObstacles(scan_distance, range_min, range_max);
+    dwa.SetObstacles(lidar_points, range_min, range_max);
 
     // 로봇의 제어 명령을 얻고 출력
     
@@ -295,9 +301,11 @@ void SetDWA()
     // 목표에 도달했는지 확인
     if (sqrt(pow(goal_point[0] - init_state[0], 2) + pow(goal_point[1] - init_state[1], 2)) < 0.5) {
         std::cout << "Goal reached!" << std::endl;
-        arrive_flag = true;
+        goal_index++;
     }
-    
+
+    if (global_path.size() <= goal_index)
+        arrive_flag = true;
 }
 
 
@@ -346,7 +354,7 @@ int main(int argc, char** argv) {
     multi_array_publisher_ = node->create_publisher<std_msgs::msg::Float64MultiArray>("xyflag", 10);
     trajectory_publisher_ = node->create_publisher<visualization_msgs::msg::MarkerArray>("local_path", 10);
 
-    auto subscription = node->create_subscription<std_msgs::msg::Float64MultiArray>("your_topic_name", 10, topic_callback);
+    auto subscription = node->create_subscription<std_msgs::msg::Float64MultiArray>("pose", 10, topic_callback);
     
 
     unsigned int cells_size_x = 110;

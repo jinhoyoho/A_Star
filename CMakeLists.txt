@@ -30,6 +30,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(nav2_core REQUIRED)
 find_package(nav2_dwb_controller REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 
 # Declare a library
@@ -59,7 +60,7 @@ target_link_libraries(my_node ${PCL_LIBRARIES})
 
 
 add_executable(main src/main.cpp src/a_star.cpp src/nodes.cpp src/global_planner.cpp src/math_helper.cpp src/dwa_planner.cpp)
-ament_target_dependencies(main rclcpp nav2_costmap_2d geometry_msgs visualization_msgs PCL pcl_conversions nav2_dwb_controller)
+ament_target_dependencies(main rclcpp nav2_costmap_2d geometry_msgs visualization_msgs PCL pcl_conversions nav2_dwb_controller yaml-cpp)
 target_link_libraries(main ${PCL_LIBRARIES})
 
 # Link dependencies to the library

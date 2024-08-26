@@ -2,6 +2,7 @@
 #include "dwa_planner.h"
 
 
+
 DWAPlanner::DWAPlanner(State init_state)
 {
   std::cout << "DWAPLanner" << std::endl;
@@ -104,6 +105,7 @@ Trajectory DWAPlanner::CalcTrajectory(float v, float y)
 //   }
 //   return 1.0 / minr;
 // }
+
 float DWAPlanner::CalcObstacleCost(Trajectory traj)
 {
     float minr = std::numeric_limits<float>::max();
@@ -113,8 +115,8 @@ float DWAPlanner::CalcObstacleCost(Trajectory traj)
     {
         for (const auto& obstacle : ob_)
         {
-            float dx = traj[ii][0] - obstacle[0]; // x 거리
-            float dy = traj[ii][1] - obstacle[1]; // y 거리
+            float dx = traj[ii][0] - obstacle.x; // x 거리
+            float dy = traj[ii][1] - obstacle.y; // y 거리
 
             float r = std::sqrt(dx * dx + dy * dy); // 2D 거리 계산
             if (r <= config_.robot_radius)
@@ -250,14 +252,14 @@ Trajectory DWAPlanner::DWAControl()
 //       ob_.erase(ob_.begin());
 // }
 
-void DWAPlanner::SetObstacles(const std::vector<Point3D>& lidar_points, float range_min, float range_max)
+void DWAPlanner::SetObstacles(const pcl::PointCloud<pcl::PointXYZ>::Ptr& lidar_points, float range_min, float range_max)
 {
     ob_.clear(); // 장애물 벡터 초기화
     float min_dist = std::numeric_limits<float>::max();
-    Point3D closest_obstacle({min_dist, min_dist, min_dist});
+    pcl::PointXYZ closest_obstacle(min_dist, min_dist, min_dist); // 초기화
 
     // Calculate the closest obstacle
-    for (const auto& point : lidar_points)
+    for (const auto& point : lidar_points->points) // PCL 포인트 클라우드에서 포인트 접근
     {
         // 장애물의 거리 계산
         float distance = std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
@@ -265,7 +267,7 @@ void DWAPlanner::SetObstacles(const std::vector<Point3D>& lidar_points, float ra
         // 범위 필터링
         if (distance < range_max && distance > range_min)
         {
-            // 로봇의 위치와 장애물의 거리 계산
+            // 가장 가까운 장애물 업데이트
             if (distance < min_dist)
             {
                 min_dist = distance;
@@ -279,7 +281,7 @@ void DWAPlanner::SetObstacles(const std::vector<Point3D>& lidar_points, float ra
     {
         ob_.push_back(closest_obstacle);
         if (ob_.size() >= 25)
-            ob_.erase(ob_.begin());
+            ob_.erase(ob_.begin()); // 오래된 장애물 정보 제거
     }
 }
 
@@ -332,7 +334,7 @@ void DWAPlanner::PublishTrajectory(rclcpp::Publisher<visualization_msgs::msg::Ma
   marker.header.stamp = rclcpp::Clock().now();
   marker.ns = "trajectory";
   marker.id = 0;
-  marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+  marker.type = visualization_msgs::msg::Marker::LINE_STRIP; // 선으로 표시
   marker.action = visualization_msgs::msg::Marker::ADD;
 
   marker.pose.position.x = 0;
@@ -340,17 +342,17 @@ void DWAPlanner::PublishTrajectory(rclcpp::Publisher<visualization_msgs::msg::Ma
   marker.pose.position.z = 0;
   marker.pose.orientation.w = 1.0;
 
-  marker.scale.x = 0.8; // 선의 두께
+  marker.scale.x = 0.1; // 선의 두께
   marker.color.r = 1.0; // 빨간색
   marker.color.g = 0.0;
   marker.color.b = 0.0;
   marker.color.a = 1.0; // 불투명
-
+  
   // 로컬 경로에 따른 포인트 추가
   for (const auto& state : trajectory_) {
       geometry_msgs::msg::Point p;
-      p.x = state[0];
-      p.y = state[1];
+      p.x = state[0]; // x 좌표
+      p.y = state[1]; // y 좌표
       p.z = 0; // 2D 경로이므로 z는 0
       marker.points.push_back(p);
   }

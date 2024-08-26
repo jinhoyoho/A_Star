@@ -8,6 +8,11 @@
 #include <tf2/convert.h>
 #include <rclcpp/rclcpp.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+#include <vector>
+#include <limits>
+#include <cmath>
 
 
 #define PI 3.141592653
@@ -43,11 +48,18 @@ public:
 class DWAPlanner{
     public:
         DWAPlanner(State init_state);
-        void SetObstacles(std::vector<float> scan_distances, float angle_increment, float angle_min, 
-                          float angle_max, float range_min, float range_max); //!< Stores obstacle points from scan msgs
+        // void SetObstacles(std::vector<float> scan_distances, float angle_increment, float angle_min, 
+        //                   float angle_max, float range_min, float range_max); //!< Stores obstacle points from scan msgs
+        
+        void SetObstacles(const pcl::PointCloud<pcl::PointXYZ>::Ptr& lidar_points, float range_min, float range_max);
+      
         void SetState(State state);       //!< Stores the current state of the robot for planning
         void SetGoal(Point goal);   /*!< Motion command (speed and yaw rate) defined by DWA */
-        Obstacle ob_;                   /*!< Vector with scan points corresponding to obstacles*/
+        // Obstacle ob_;                   /*!< Vector with scan points corresponding to obstacles*/
+        
+        std::vector<pcl::PointXYZ> ob_; // 장애물 저장 벡터
+        
+        
         Trajectory trajectory_;           //!< Returns current trajectory to be followed by the robot according to the DWA
         Control GetCmd();                 //!< Returns speed and yaw_rate commands defined by the DWA
 
