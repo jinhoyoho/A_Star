@@ -1,11 +1,8 @@
-
 #include "dwa_planner.h"
-
 
 
 DWAPlanner::DWAPlanner(State init_state)
 {
-  std::cout << "DWAPLanner" << std::endl;
   x_ = init_state;
   goal_ = Point({{init_state[0], init_state[1]}});
   u_ = Control({{0.0, 0.0}});
@@ -20,13 +17,31 @@ DWAPlanner::DWAPlanner(State init_state)
       \param dt Time delta
       \return State after executing a motion step from the state x with motion cmd u
     */
-State DWAPlanner::Motion(State x, Control u, float dt)
+
+State DWAPlanner::Motion(State x, double current_x, double current_y, double heading)
 {
-  x[2] += 1.9*u[1] * dt; // 각도 업데이트
-  x[0] += 0.9*u[0] * std::cos(x[2]) * dt; // x 위치 업데이트
-  x[1] += 0.9*u[0] * std::sin(x[2]) * dt; // y 위치 업데이트
-  x[3] = 0.9*u[0]; // 선형 속도 업데이트
-  x[4] = 1.9*u[1]; // 각속도 업데이트
+  x[2] = heading; // 각도 업데이트
+  x[0] = current_x; // x 위치 업데이트
+  x[1] = current_y; // y 위치 업데이트
+
+  // 목표 방향 계산
+  float goal_angle = std::atan2(goal_[1] - current_y, goal_[0] - current_x);
+
+  // 각속도 계산
+  float angle_diff = goal_angle - heading; // 현재 방향과 목표 방향의 차이
+  angle_diff = std::atan2(std::sin(angle_diff), std::cos(angle_diff)); // 각도 정규화
+  float yaw_rate = angle_diff / config_.dt; // 각속도
+  x[4] = yaw_rate; // 각속도 업데이트
+
+   // 선형 속도 계산
+  float distance_to_goal = std::sqrt(pow(goal_[0] - current_x, 2) + pow(goal_[1] - current_y, 2));
+  float linear_speed = std::min(config_.max_speed, distance_to_goal / config_.predict_time); // 최대 속도와 목표 거리 기반
+
+
+  x[3] = linear_speed; // 선형 속도 업데이트
+
+  u_ = Control({{linear_speed, yaw_rate}});
+
   return x;
 }
 
@@ -59,7 +74,7 @@ Trajectory DWAPlanner::CalcTrajectory(float v, float y)
   float time = 0.0;
   while (time <= config_.predict_time)  //Simulate trajectory for predict_time seconds
   {
-    x = Motion(x, std::array<float, 2>{{v, y}}, config_.dt);  // Perform one motion step
+    x = Motion(x, x[0], x[1], x[2]);  // Perform one motion step
     traj.push_back(x);
     time += config_.dt;
   }
