@@ -1,16 +1,17 @@
 import rclpy as rp
+import math
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64MultiArray, Bool
 rp.init()
 
-goal_theta = 0
-theta = 0
+x, y, goal_x, goal_y, theta = 0
 stop_flag = False
 
 def goal_callback(input_rosmsg):
-    global goal_theta
+    global goal_x, goal_y
     goal = input_rosmsg.data
-    goal_theta = goal[1]
+    goal_x = goal[0]
+    goal_y = goal[1]
 
 
 def stop_callback(input_rosmsg):
@@ -21,7 +22,7 @@ def stop_callback(input_rosmsg):
         stop_flag = False
 
 def pose_callback(input_rosmsg):
-    global theta
+    global x,y, theta
     pose = input_rosmsg.data
     x = pose[0]
     y = pose[1]
@@ -29,10 +30,11 @@ def pose_callback(input_rosmsg):
 
 
 def timer_callback():
+    goal_theta = math.atan2(goal_y - y, goal_x - x)
     error = goal_theta - theta 
     cmd_vel = Twist()
-    cmd_vel.angular.z = error * 0.3
-    cmd_vel.linear.x = 1.0 * 0.3
+    cmd_vel.angular.z = error
+    cmd_vel.linear.x = 1.0
 
     if stop_flag :
         cmd_vel.angular.z = 0

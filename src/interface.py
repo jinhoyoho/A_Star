@@ -98,7 +98,7 @@ DXL_ID_1 = 1
 DXL_ID_5 = 5               
 
 # 사용 포트 설정
-DEVICENAME = '/dev/ttyUSB1'
+DEVICENAME = '/dev/ttyUSB0'
 BAUDRATE = 1000000
 PROTOCOL_VERSION = 1.0
 
@@ -113,6 +113,8 @@ TORQUE_ENABLE = 1
 TORQUE_DISABLE = 0 
 CW_ANGLE_LIMIT = 0
 CCW_ANGLE_LIMIT = 0
+
+cycle = 1024 * 2.0
 
 # 패킷핸들러 및 포트핸들러 초기화
 portHandler = dxl.PortHandler(DEVICENAME)
@@ -215,103 +217,96 @@ def motor_init():
 
 
 def open(num):
-    if num == 2:
-        num = 5
-    elif num == 3:
-        num = 17
+    left = 1
+    right = 5
 
     start_time = time.time()
     print("open " + str(num))
     moving_speed = 1024 + 400  # 시계 방향으로 회전
-    packetHandler.write2ByteTxRx(portHandler, num, ADDR_MX_MOVING_SPEED, moving_speed)
+    packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, moving_speed)
+    moving_speed = moving_speed - 1024
+    packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, moving_speed)
 
-    previous_position = 0
     total_sum = 0
 
-    first_position, _, _ = packetHandler.read2ByteTxRx(portHandler, num, ADDR_MX_PRESENT_POSITION)
-    last_reps = 10000
+    last_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
 
-    print("fp: ", first_position)
-
-    cycle_flag = True
     while True:
-        current_position, _, _ = packetHandler.read2ByteTxRx(portHandler, num, ADDR_MX_PRESENT_POSITION)
+        current_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
         # print("cp: ",current_position)
 
         #=====
-        reps = first_position - current_position
-        if reps < 0:
-            reps += 1024
+        step = last_position - current_position
+        if  step < 0:
+            step += 1024
 
-        total_sum += reps
+        if step < 200:
+            total_sum += step
         
         #=====
 
-        print(total_sum)
+        print(current_position, total_sum)
 
-        if total_sum > 20000:
+        if total_sum > cycle:
             break
 
         if time.time() - start_time > 10:
             break
 
-        
-        
         time.sleep(0.1)  # 모니터링 주기
 
+        last_position = current_position
+
     # 모터 멈추기
-    packetHandler.write2ByteTxRx(portHandler, num, ADDR_MX_MOVING_SPEED, 0)
+    packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, 0)
+    packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, 0)
 
 def close(num):
     global open_flag
     open_flag = False
-    print("close " + str(num))
-
-    if num == 2:
-        num = 5
-    elif num == 3:
-        num = 17
+    left = 1
+    right = 5
 
     start_time = time.time()
-    moving_speed = 400  # 시계 방향으로 회전
-    packetHandler.write2ByteTxRx(portHandler, num, ADDR_MX_MOVING_SPEED, moving_speed)
+    print("close " + str(num))
+    moving_speed = 1024 + 400  # 시계 방향으로 회전
+    packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, moving_speed)
+    moving_speed = moving_speed - 1024
+    packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, moving_speed)
 
-    desired_revolutions = 2  # 2바퀴 회전
-    revolutions = 0
-    first_position, _, _ = packetHandler.read2ByteTxRx(portHandler, num, ADDR_MX_PRESENT_POSITION)
-    last_position = first_position
-    
-    cycle_flag = True
+    total_sum = 0
 
-    if first_position == 1023:
-        first_position = 1022
-
-    print("fp: ", first_position)
+    last_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
 
     while True:
-        current_position, _, _ = packetHandler.read2ByteTxRx(portHandler, num, ADDR_MX_PRESENT_POSITION)
-        print("cp: ",current_position)
+        current_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
+        # print("cp: ",current_position)
 
-        if current_position > first_position:
-            cycle_flag = True
+        #=====
+        step = current_position - last_position
+        if  step < 0:
+            step += 1024
+
+        if step < 200:
+            total_sum += step
         
-        if current_position <= first_position and last_position != current_position and cycle_flag == True:
-            revolutions += 1
-            cycle_flag = False
-            print("up")
+        #=====
 
-        if revolutions >= desired_revolutions:
+        print(current_position, total_sum)
+
+        if total_sum > cycle:
             break
 
         if time.time() - start_time > 10:
             break
-        
-        last_position = current_position
-        
+
         time.sleep(0.1)  # 모니터링 주기
 
+        last_position = current_position
+
     # 모터 멈추기
-    packetHandler.write2ByteTxRx(portHandler, num, ADDR_MX_MOVING_SPEED, 0)
+    packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, 0)
+    packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, 0)
 
 
 def main():
