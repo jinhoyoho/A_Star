@@ -46,7 +46,7 @@ node = rp.create_node("tracking")
 pub = node.create_publisher(Twist, "/cmd_vel", 10)
 goal_sub = node.create_subscription(Float64MultiArray, "/goal", callback = goal_callback, qos_profile = 10)
 pose_sub = node.create_subscription(Float64MultiArray, "/pose", callback = pose_callback, qos_profile = 10)
-pose_sub = node.create_subscription(Bool, "/stop", callback = stop_callback, qos_profile = 10)
+stop_sub = node.create_subscription(Bool, "/stop", callback = stop_callback, qos_profile = 10)
 timer = node.create_timer(0.1, timer_callback)
 
 rp.spin(node)
