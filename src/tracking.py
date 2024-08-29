@@ -8,10 +8,14 @@ x, y, goal_x, goal_y, theta = 0
 stop_flag = False
 
 def goal_callback(input_rosmsg):
-    global goal_x, goal_y
+    global goal_x, goal_y, stop_flag
     goal = input_rosmsg.data
     goal_x = goal[0]
     goal_y = goal[1]
+    if goal[2] == True:
+        stop_flag = True
+    else:
+        stop_flag = False
 
 
 def stop_callback(input_rosmsg):
@@ -44,7 +48,7 @@ def timer_callback():
 
 node = rp.create_node("tracking")
 pub = node.create_publisher(Twist, "/cmd_vel", 10)
-goal_sub = node.create_subscription(Float64MultiArray, "/goal", callback = goal_callback, qos_profile = 10)
+goal_sub = node.create_subscription(Float64MultiArray, "/xyflag", callback = goal_callback, qos_profile = 10)
 pose_sub = node.create_subscription(Float64MultiArray, "/pose", callback = pose_callback, qos_profile = 10)
 stop_sub = node.create_subscription(Bool, "/stop", callback = stop_callback, qos_profile = 10)
 timer = node.create_timer(0.1, timer_callback)

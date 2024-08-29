@@ -1,7 +1,7 @@
 import pygame
 import sys
 import rclpy as rp
-from std_msgs.msg import Int16MultiArray
+from std_msgs.msg import Int16MultiArray, Bool, Float64MultiArray
 import time
 import dynamixel_sdk as dxl
 
@@ -18,9 +18,20 @@ drawer1 = {"destination" : "", "password" : ""}
 drawer2 = {"destination" : "", "password" : ""}
 drawer3 = {"destination" : "", "password" : ""}
 
+stop_flag = False
+
+def goal_callback(input_rosmsg):
+    global stop_flag
+    if input_rosmsg[2] == True:
+        stop_flag = True
+    else:
+        stop_flag = False
+
 # create node
 interface = rp.create_node("interface")
 pub = interface.create_publisher(Int16MultiArray, "user", 10)
+go_pub = interface.create_publisher(Bool, "/go", 10)
+goal_sub = interface.create_subscription(Float64MultiArray, "/xyflag", goal_callback, 10)
 
 # 화면 크기 설정
 screen_width = 800
@@ -217,96 +228,98 @@ def motor_init():
 
 
 def open(num):
-    left = 1
-    right = 5
+    pass
+    # left = 1
+    # right = 5
 
-    start_time = time.time()
-    print("open " + str(num))
-    moving_speed = 1024 + 400  # 시계 방향으로 회전
-    packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, moving_speed)
-    moving_speed = moving_speed - 1024
-    packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, moving_speed)
+    # start_time = time.time()
+    # print("open " + str(num))
+    # moving_speed = 1024 + 400  # 시계 방향으로 회전
+    # packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, moving_speed)
+    # moving_speed = moving_speed - 1024
+    # packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, moving_speed)
 
-    total_sum = 0
+    # total_sum = 0
 
-    last_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
+    # last_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
 
-    while True:
-        current_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
-        # print("cp: ",current_position)
+    # while True:
+    #     current_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
+    #     # print("cp: ",current_position)
 
-        #=====
-        step = last_position - current_position
-        if  step < 0:
-            step += 1024
+    #     #=====
+    #     step = last_position - current_position
+    #     if  step < 0:
+    #         step += 1024
 
-        if step < 200:
-            total_sum += step
+    #     if step < 200:
+    #         total_sum += step
         
-        #=====
+    #     #=====
 
-        print(current_position, total_sum)
+    #     print(current_position, total_sum)
 
-        if total_sum > cycle:
-            break
+    #     if total_sum > cycle:
+    #         break
 
-        if time.time() - start_time > 10:
-            break
+    #     if time.time() - start_time > 10:
+    #         break
 
-        time.sleep(0.1)  # 모니터링 주기
+    #     time.sleep(0.1)  # 모니터링 주기
 
-        last_position = current_position
+    #     last_position = current_position
 
-    # 모터 멈추기
-    packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, 0)
-    packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, 0)
+    # # 모터 멈추기
+    # packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, 0)
+    # packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, 0)
 
 def close(num):
-    global open_flag
-    open_flag = False
-    left = 1
-    right = 5
+    pass
+    # global open_flag
+    # open_flag = False
+    # left = 1
+    # right = 5
 
-    start_time = time.time()
-    print("close " + str(num))
-    moving_speed = 1024 + 400  # 시계 방향으로 회전
-    packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, moving_speed)
-    moving_speed = moving_speed - 1024
-    packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, moving_speed)
+    # start_time = time.time()
+    # print("close " + str(num))
+    # moving_speed = 1024 + 400  # 시계 방향으로 회전
+    # packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, moving_speed)
+    # moving_speed = moving_speed - 1024
+    # packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, moving_speed)
 
-    total_sum = 0
+    # total_sum = 0
 
-    last_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
+    # last_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
 
-    while True:
-        current_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
-        # print("cp: ",current_position)
+    # while True:
+    #     current_position, _, _ = packetHandler.read2ByteTxRx(portHandler, right, ADDR_MX_PRESENT_POSITION)
+    #     # print("cp: ",current_position)
 
-        #=====
-        step = current_position - last_position
-        if  step < 0:
-            step += 1024
+    #     #=====
+    #     step = current_position - last_position
+    #     if  step < 0:
+    #         step += 1024
 
-        if step < 200:
-            total_sum += step
+    #     if step < 200:
+    #         total_sum += step
         
-        #=====
+    #     #=====
 
-        print(current_position, total_sum)
+    #     print(current_position, total_sum)
 
-        if total_sum > cycle:
-            break
+    #     if total_sum > cycle:
+    #         break
 
-        if time.time() - start_time > 10:
-            break
+    #     if time.time() - start_time > 10:
+    #         break
 
-        time.sleep(0.1)  # 모니터링 주기
+    #     time.sleep(0.1)  # 모니터링 주기
 
-        last_position = current_position
+    #     last_position = current_position
 
-    # 모터 멈추기
-    packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, 0)
-    packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, 0)
+    # # 모터 멈추기
+    # packetHandler.write2ByteTxRx(portHandler, left, ADDR_MX_MOVING_SPEED, 0)
+    # packetHandler.write2ByteTxRx(portHandler, right, ADDR_MX_MOVING_SPEED, 0)
 
 
 def main():
@@ -319,7 +332,7 @@ def main():
     driving_flag = False
 
 
-    motor_init()
+    # motor_init()
 
     password = ''
     while True:
@@ -329,6 +342,8 @@ def main():
                 pygame.quit()
                 sys.exit()
                 
+            if stop_flag == True:
+                phase = "arrive"
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
@@ -518,6 +533,9 @@ def main():
                 elif phase == "open":
                     if open_rect.collidepoint(mouse_pos):
                         if driving_flag:
+                            msg = Bool()
+                            msg.data = True
+                            go_pub.publish(msg)
                             phase = "driving"
                         else:
                             phase = "main"
