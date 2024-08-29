@@ -21,6 +21,8 @@
 #include <vector>
 #include <limits>
 #include <algorithm>
+#include <pcl/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 
 rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr path_publisher_;
@@ -28,6 +30,7 @@ rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr node_publisher_;
 rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_publisher_;
 rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr multi_array_publisher_;
 rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr trajectory_publisher_;
+rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr lidar_publisher_;
 
 std::unique_ptr<nav2_costmap_2d::Costmap2D> costmap_;
 std::unique_ptr<global_planner::AStar> a_star_;
@@ -50,6 +53,9 @@ double ld_x, ld_y; // ld x, y 좌표
 Node start((-1)*origin_x + 3*current_x, (-1)*origin_y + 3*current_y);
 Node goal(150, 150); // 해상도에 맞춰 조정
 
+pcl::PointCloud<pcl::PointXYZ>::Ptr lidar_points(new pcl::PointCloud<pcl::PointXYZ>);
+
+
 size_t goal_index = 0;
 
 
@@ -61,7 +67,21 @@ void topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     start.set_x((-1)*origin_x + 3*current_x);
     start.set_y((-1)*origin_y + 3*current_y);
 
-    std::cout << "현재 위치: " << (-1)*origin_x + 3*current_x << " " << (-1)*origin_y + 3*current_y << "\n"; 
+    // std::cout << "현재 위치: " << (-1)*origin_x + 3*current_x << " " << (-1)*origin_y + 3*current_y << "\n"; 
+}
+
+void lidar_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+
+    // PointCloud2 메시지를 PCL PointCloud로 변환
+    pcl::fromROSMsg(*msg, *lidar_points);
+
+    for (auto& point : lidar_points->points) {
+        point.x = (-1)*origin_x + 3 * point.x;
+        point.y = (-1)*origin_y + 3 * point.y;
+        // std::cout << "라이다 좌표: " << point.x << " " << point.y << " " << point.z<< "\n";
+        }
+
+
 }
 
 // Static Transform Publisher 추가
@@ -274,36 +294,61 @@ void findClosestNode(std::vector<Node>& path, size_t& start_index) {
 
 }
 
+void PublishLidarPoints() {
+        visualization_msgs::msg::MarkerArray marker_array;
+        visualization_msgs::msg::Marker marker;
+
+        marker.header.frame_id = "map"; // 또는 "odom"
+        marker.header.stamp = rclcpp::Clock().now();
+        marker.ns = "lidar_debug";
+        marker.id = 0;
+        marker.type = visualization_msgs::msg::Marker::POINTS; // 포인트로 표시
+        marker.action = visualization_msgs::msg::Marker::ADD;
+
+        marker.pose.position.x = 0;
+        marker.pose.position.y = 0;
+        marker.pose.position.z = 0;
+        marker.pose.orientation.w = 1.0;
+
+        marker.scale.x = 0.1; // 포인트 크기
+        marker.scale.y = 0.1; // 포인트 크기
+        marker.color.r = 0.0; // 색상: 파란색
+        marker.color.g = 0.0;
+        marker.color.b = 1.0;
+        marker.color.a = 1.0; // 불투명
+
+        // LIDAR 포인트 클라우드에서 포인트 추가
+        for (const auto& point : lidar_points->points) {
+            geometry_msgs::msg::Point p;
+            p.x = point.x; // x 좌표
+            p.y = point.y; // y 좌표
+            p.z = 0; // 2D 경로이므로 z는 0
+            marker.points.push_back(p);
+        }
+
+        marker_array.markers.push_back(marker);
+        lidar_publisher_->publish(marker_array);
+    }
+
+
+
+
+
 
 // dwa 관련 함수
+
 void SetDWA(DWAPlanner& dwa, State& state)
 {
     Point goal_point = {ld_x, ld_y};
 
-    dwa.SetGoal(goal_point);    // 목적지 설정
+    dwa.SetGoal(goal_point);    // 목적지 설정x
     
     std::cout << "목적지: " << ld_x << " " << ld_y << "\n";
 
-    // PCL 포인트 클라우드 객체 생성
-    pcl::PointCloud<pcl::PointXYZ>::Ptr lidar_points(new pcl::PointCloud<pcl::PointXYZ>);
-
-    // // 샘플 3D LIDAR 데이터 추가
-    // lidar_points->points.push_back(pcl::PointXYZ(1.0f, 2.0f, 0.0f)); // 유효한 장애물
-    // lidar_points->points.push_back(pcl::PointXYZ(3.0f, -1.0f, 0.0f)); // 유효한 장애물
-    // lidar_points->points.push_back(pcl::PointXYZ(0.1f, 0.1f, 0.0f)); // 너무 가까운 장애물 (0.1m)
-    // lidar_points->points.push_back(pcl::PointXYZ(6.0f, 6.0f, 0.0f)); // 너무 먼 장애물 (6.0m)
-    // lidar_points->points.push_back(pcl::PointXYZ(-2.0f, 4.0f, 0.0f)); // 유효한 장애물
-    // 포인트 클라우드의 크기 설정
-    lidar_points->width = lidar_points->points.size();
-    lidar_points->height = 1; // 단일 행의 포인트 클라우드
-
-
-    // float angle_increment = M_PI / 180.0; // 1도 단위 각도 증가
-    // float angle_min = -M_PI / 4; // -45도
-    // float angle_max = M_PI / 4; // 45도
-
     float range_min = 0.2; // 최소 거리
-    float range_max = 5.0; // 최대 거리
+    float range_max = 10.0; // 최대 거리
+
+    PublishLidarPoints();
 
     // 장애물 정보 업데이트
     dwa.SetObstacles(lidar_points, range_min, range_max);
@@ -318,24 +363,21 @@ void SetDWA(DWAPlanner& dwa, State& state)
 
     dwa.PublishTrajectory(trajectory_publisher_);
 
-    // 목표에 도달했는지 확인
-    // if (sqrt(pow(goal_point[0] - init_state[0], 2) + pow(goal_point[1] - init_state[1], 2)) < 0.5) {
-    //     std::cout << "Goal reached!" << std::endl;
-    //     goal_index++;
-    // }
+    
     std::cout << "현재 위치: " << state[0] << " " << state[1] << "\n";
 
     if (sqrt(pow(goal_point[0] - state[0], 2) + pow(goal_point[1] - state[1], 2)) < 0.5) {
         std::cout << "Goal reached!!!!!!" << "\n";
         goal_index++;
-    }
+        
+        if (goal_index >= global_path.size())
+        {
+            std::cout << "배달 완료" << "\n";
+            arrive_flag = true;
+            goal_index=0;
 
-    
-
-    if (global_path.size() <= goal_index){
-        arrive_flag = true;
-        goal_index=0;
-    }
+        }
+    }    
 }
 
 
@@ -354,6 +396,8 @@ void publishCostmapAndPath(DWAPlanner& dwa, State& state) {
         if (a_star_->plan(start, goal, path, expand)) {
             global_path = path; // 전역 경로에 저장
             std::reverse(global_path.begin(), global_path.end());
+
+            arrive_flag = false;
 
             for(auto& p:global_path)
             {
@@ -384,8 +428,10 @@ int main(int argc, char** argv) {
     costmap_publisher_ = node->create_publisher<nav_msgs::msg::OccupancyGrid>("costmap", 10);
     multi_array_publisher_ = node->create_publisher<std_msgs::msg::Float64MultiArray>("xyflag", 10);
     trajectory_publisher_ = node->create_publisher<visualization_msgs::msg::MarkerArray>("local_path", 10);
+    lidar_publisher_ = node->create_publisher<visualization_msgs::msg::MarkerArray>("lidar_debug", 10);
 
     auto subscription = node->create_subscription<std_msgs::msg::Float64MultiArray>("pose", 10, topic_callback);
+    auto lidar_sub = node->create_subscription<sensor_msgs::msg::PointCloud2>("processed_points", 10, lidar_callback);
     
 
     unsigned int cells_size_x = 300;
