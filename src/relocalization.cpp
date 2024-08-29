@@ -41,7 +41,7 @@ private:
     void load_map()
     {
         // PCD 파일을 로드
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/jinho/ros2_ws/src/my_package/map_2d.pcd", *map_in) == -1)
+        if (pcl::io::loadPCDFile<pcl::PointXYZ>("/home/nvidia/ros2_ws/src/my_package/map_2d.pcd", *map_in) == -1)
         {
             RCLCPP_ERROR(this->get_logger(), "Couldn't read file GlobalMap.pcd");
             return;
