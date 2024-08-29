@@ -41,6 +41,8 @@ State DWAPlanner::Motion(State x, double current_x, double current_y, double hea
   x[3] = linear_speed; // 선형 속도 업데이트
 
   u_ = Control({{linear_speed, yaw_rate}});
+  
+  x_ = x;
 
   return x;
 }
@@ -80,46 +82,6 @@ Trajectory DWAPlanner::CalcTrajectory(float v, float y)
   }
   return traj;
 }
-
-//! CalcObstacleCost function
-    /*!
-      Calculate obstacle cost defined by the current trajectory
-      /param traj Trajectory that we want to calculate the cost of
-      \return cost float obstacle cost
-    */
-
-// 현재 경로가 장애물과 얼마나 가까운지를 평가하여 장애물 비용을 계산
-// float DWAPlanner::CalcObstacleCost(Trajectory traj)
-// {
-//   // calc obstacle cost inf: collistion, 0:free
-//   int skip_n = 4; //skip some points of the trajectory
-//   float minr = std::numeric_limits<float>::max();
-
-//   // Evaluate distance to obstacles for evert point int he trajectory and 
-//   // make sure that the robot won't crash
-//   for (unsigned int ii = 0; ii < traj.size(); ii += skip_n)
-//   {
-//     for (unsigned int i = 0; i < ob_.size(); i++)
-//     {
-//         float ox = ob_[i][0];
-//         float oy = ob_[i][1];  
-//         float dx = traj[ii][0] - ox;
-//         float dy = traj[ii][1] - oy;
-
-//         float r = std::sqrt(dx * dx + dy * dy);
-//         if (r <= config_.robot_radius)
-//         {
-//           return std::numeric_limits<float>::max();
-//         }
-
-//         if (minr >= r)
-//         {
-//           minr = r;
-//         }
-//     }
-//   }
-//   return 1.0 / minr;
-// }
 
 float DWAPlanner::CalcObstacleCost(Trajectory traj)
 {
@@ -233,52 +195,19 @@ Trajectory DWAPlanner::DWAControl()
       \param range_max Max posible distance possible in the scan distances
     */
 
-// 로봇의 센서로부터 수집된 거리 데이터를 사용하여 장애물의 위치를 계산하고 저장
-// void DWAPlanner::SetObstacles(std::vector<float> scan_distances, float angle_increment, float angle_min, float angle_max, float range_min, float range_max)
-// {
-//   std::vector<float>::iterator d_ptr;
-//   // Iterate through scans and calculate location of points
-//   ob_.clear();
-//   float current_angle = angle_min;
-//   float min_dist = 10000.0f;
-//   Point closest_obstacle({min_dist, min_dist});
-
-//   // Calculate the point closest to the robot
-//   for (d_ptr = scan_distances.begin(); d_ptr < scan_distances.end(); d_ptr++)
-//   {
-//     if ((*d_ptr < range_max) && (*d_ptr > range_min))
-//     {
-//       float x_local = *d_ptr * cos(current_angle);
-//       float y_local = *d_ptr * sin(current_angle);
-//       float ox = x_[0] + x_local * cos(x_[2]) - y_local * sin(x_[2]);
-//       float oy = x_[1] + x_local * sin(x_[2]) + y_local * cos(x_[2]);
-
-//       if(*d_ptr <=min_dist){
-//         min_dist = *d_ptr;
-//         closest_obstacle = Point{{ox, oy}};
-//       }
-//       if (current_angle <= angle_max)
-//         current_angle += angle_increment;
-//     }
-//   }
-//   // Save closest obstacle in vector (save last 25 points)
-//   ob_.push_back(closest_obstacle);
-//     if(ob_.size()>=25)
-//       ob_.erase(ob_.begin());
-// }
-
 void DWAPlanner::SetObstacles(const pcl::PointCloud<pcl::PointXYZ>::Ptr& lidar_points, float range_min, float range_max)
 {
     ob_.clear(); // 장애물 벡터 초기화
     float min_dist = std::numeric_limits<float>::max();
     pcl::PointXYZ closest_obstacle(min_dist, min_dist, min_dist); // 초기화
 
+
     // Calculate the closest obstacle
     for (const auto& point : lidar_points->points) // PCL 포인트 클라우드에서 포인트 접근
     {
         // 장애물의 거리 계산
-        float distance = std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
-        
+        float distance = std::sqrt(pow(x_[0] - point.x, 2) +  pow(x_[1] - point.y, 2));
+
         // 범위 필터링
         if (distance < range_max && distance > range_min)
         {
@@ -290,6 +219,8 @@ void DWAPlanner::SetObstacles(const pcl::PointCloud<pcl::PointXYZ>::Ptr& lidar_p
             }
         }
     }
+
+
 
     // 가장 가까운 장애물 저장
     if (min_dist < std::numeric_limits<float>::max())
@@ -357,7 +288,7 @@ void DWAPlanner::PublishTrajectory(rclcpp::Publisher<visualization_msgs::msg::Ma
   marker.pose.position.z = 0;
   marker.pose.orientation.w = 1.0;
 
-  marker.scale.x = 0.1; // 선의 두께
+  marker.scale.x = 1.0; // 선의 두께
   marker.color.r = 1.0; // 빨간색
   marker.color.g = 0.0;
   marker.color.b = 0.0;
@@ -370,6 +301,7 @@ void DWAPlanner::PublishTrajectory(rclcpp::Publisher<visualization_msgs::msg::Ma
       p.y = state[1]; // y 좌표
       p.z = 0; // 2D 경로이므로 z는 0
       marker.points.push_back(p);
+      std::cout << "로컬 경로: " << p.x << " " <<p.y << "\n";
   }
 
   marker_array.markers.push_back(marker);

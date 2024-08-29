@@ -5,6 +5,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/common/transforms.h>
 #include <std_msgs/msg/int64_multi_array.hpp>
+#include <std_msgs/msg/float64_multi_array.hpp>
 
 class PointCloudProcessor : public rclcpp::Node
 {
@@ -16,8 +17,8 @@ public:
             "/velodyne_points", 10, std::bind(&PointCloudProcessor::pointCloudCallback, this, std::placeholders::_1));
 
         // Subscriber to /localization
-        localization_sub_ = this->create_subscription<std_msgs::msg::Int64MultiArray>(
-            "/localization", 10, std::bind(&PointCloudProcessor::localizationCallback, this, std::placeholders::_1));
+        localization_sub_ = this->create_subscription<std_msgs::msg::Float64MultiArray>(
+            "/pose", 10, std::bind(&PointCloudProcessor::localizationCallback, this, std::placeholders::_1));
 
         // Publisher for processed point cloud
         processed_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/processed_points", 10);
@@ -64,18 +65,18 @@ private:
         processed_pub_->publish(output_msg);
     }
 
-    void localizationCallback(const std_msgs::msg::Int64MultiArray::SharedPtr msg)
+    void localizationCallback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
     {
         if (msg->data.size() >= 3)
         {
             global_x_ = static_cast<float>(msg->data[0]);
             global_y_ = static_cast<float>(msg->data[1]);
-            global_y_ = static_cast<float>(msg->data[2]) * M_PI / 180.0; // Convert yaw from degrees to radians
+            global_yaw_ = static_cast<float>(msg->data[2]); // Convert yaw from degrees to radians
         }
     }
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr velodyne_sub_;
-    rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr localization_sub_;
+    rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr localization_sub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr processed_pub_;
 
     float global_x_ = 0.0;
