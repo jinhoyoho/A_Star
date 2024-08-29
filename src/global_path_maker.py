@@ -6,7 +6,7 @@ import numpy as np
 
 current_pose = [0, 0, 0]
 previous_pose = [0, 0, 0]
-global_path = [0, 1]
+global_path = []
 path_gap = 0.5
 
 
@@ -19,29 +19,33 @@ def pose_callback(input_rosmsg):
 
 
 def distance(x1, x2, y1, y2):
-    return ((x1 - x2)**2 + (y1 - y2)**2)**(1/2)
+    return ((x1 - x2)**2 + (y1 - y2)**2)**(0.5)
 
 
 def timer_callback():
     global previous_pose
+
+    print(distance(current_pose[0], previous_pose[0], current_pose[1], previous_pose[1]))
     if distance(current_pose[0], previous_pose[0], current_pose[1], previous_pose[1]) > path_gap:
         global_path.append([current_pose[0], current_pose[1]])
-        previous_pose = current_pose
+        previous_pose = current_pose[:]
 
-    pc = PointCloud()
-    for p in global_path:
-        pt = Point32()
-        pt.x = p[0]
-        pt.y = p[1]
-        pt.z = 0
-        pc.points.append(pt)
+    print("글로벌 길이: ", len(global_path))
 
-    path_pub.publish(pc)
+    if len(global_path) > 1:
+        pc = PointCloud()
+        pc.header.frame_id = 'map'
+        for p in global_path:
+            pt = Point32()
+            pt.x = p[0]
+            pt.y = p[1]
+            pt.z = 0.0
+            pc.points.append(pt)
+
+        path_pub.publish(pc)
 
     
     
-    
-
 
 rp.init()
 node = rp.create_node("global_path_maker")
@@ -56,6 +60,6 @@ except KeyboardInterrupt:
 finally:
     node.destroy_node()
     rp.shutdown()
-    global_path = global_path + ["stop"] + global_path[::-1]
+    # global_path = global_path + ["stop"] + global_path[::-1]
     global_path_npy = np.array(global_path)
     np.save("global_path.npy", global_path_npy)

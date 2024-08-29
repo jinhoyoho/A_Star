@@ -20,17 +20,17 @@ DWAPlanner::DWAPlanner(State init_state)
 
 State DWAPlanner::Motion(State x, double current_x, double current_y, double heading)
 {
-  x[2] = heading; // 각도 업데이트
   x[0] = current_x; // x 위치 업데이트
   x[1] = current_y; // y 위치 업데이트
-
-  x[4] = 0; // 각속도
+  x[2] = heading; // 각도 업데이트
 
    // 선형 속도 계산
   float distance_to_goal = std::sqrt(pow(goal_[0] - current_x, 2) + pow(goal_[1] - current_y, 2));
   float linear_speed = std::min(config_.max_speed, distance_to_goal / config_.predict_time); // 최대 속도와 목표 거리 기반
 
   x[3] = linear_speed; // 선형 속도 업데이트
+
+  x[4] = 0; // 각속도
 
   u_ = Control({{linear_speed, x[4]}});
 
