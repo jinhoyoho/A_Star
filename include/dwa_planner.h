@@ -30,18 +30,18 @@ using Control = std::array<float, 2>; // 선형 속도, 각속도
 /*! Configuration class with the parameters of the algorithm */
 class Config{
 public:
-  float max_speed = 0.4;   // m/s
+  float max_speed = 0.3;   // m/s
   float min_speed = -0.2;
   float max_yawrate = 60.0 * PI / 180.0;  // 로봇의 최대 회전 속도 rad/s
   float max_accel = 0.3;  // 로봇의 최대 가속도 m/s^2
   float robot_radius = 0.45;  // 로봇의 반지름 m
-  float max_dyawrate = 60.0 * PI / 180.0; // 로봇의 최대 각속도 rad/s
+  float max_dyawrate = 90.0 * PI / 180.0; // 로봇의 최대 각속도 rad/s
 
-  float v_reso = 0.01;  // 속도 해상도 m/s
-  float yawrate_reso = 0.1 * PI / 180.0;  // 각속도 해상도를 나타내며, 로봇의 각속도를 샘플링하는 간격을 정의 rad/s
+  float v_reso = 0.05;  // 속도 해상도 m/s
+  float yawrate_reso = 1 * PI / 180.0;  // 각속도 해상도를 나타내며, 로봇의 각속도를 샘플링하는 간격을 정의 rad/s
 
   float dt = 0.1; // 시간 간격 s
-  float predict_time = 3.5; // 로봇의 동작을 예측 s
+  float predict_time = 1; // 로봇의 동작을 예측 s
   float to_goal_cost_gain = 0.75; // 목표까지의 거리 비용을 계산
   float speed_cost_gain = 1.5; // 속도 비용을 계산
 };

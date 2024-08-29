@@ -332,12 +332,16 @@ void PublishLidarPoints() {
 
 
 
+
+
+
 // dwa 관련 함수
+
 void SetDWA(DWAPlanner& dwa, State& state)
 {
     Point goal_point = {ld_x, ld_y};
 
-    dwa.SetGoal(goal_point);    // 목적지 설정
+    dwa.SetGoal(goal_point);    // 목적지 설정x
     
     std::cout << "목적지: " << ld_x << " " << ld_y << "\n";
 
@@ -365,17 +369,15 @@ void SetDWA(DWAPlanner& dwa, State& state)
     if (sqrt(pow(goal_point[0] - state[0], 2) + pow(goal_point[1] - state[1], 2)) < 0.5) {
         std::cout << "Goal reached!!!!!!" << "\n";
         goal_index++;
+        
         if (goal_index >= global_path.size())
         {
             std::cout << "배달 완료" << "\n";
             arrive_flag = true;
+            goal_index=0;
+
         }
     }    
-
-    if (global_path.size() <= goal_index){
-        arrive_flag = true;
-        goal_index=0;
-    }
 }
 
 

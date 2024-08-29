@@ -24,24 +24,16 @@ State DWAPlanner::Motion(State x, double current_x, double current_y, double hea
   x[0] = current_x; // x 위치 업데이트
   x[1] = current_y; // y 위치 업데이트
 
-  // 목표 방향 계산
-  float goal_angle = std::atan2(goal_[1] - current_y, goal_[0] - current_x);
-
-  // 각속도 계산
-  float angle_diff = goal_angle - heading; // 현재 방향과 목표 방향의 차이
-  angle_diff = std::atan2(std::sin(angle_diff), std::cos(angle_diff)); // 각도 정규화
-  float yaw_rate = angle_diff / config_.dt; // 각속도
-  x[4] = yaw_rate; // 각속도 업데이트
+  x[4] = 0; // 각속도
 
    // 선형 속도 계산
   float distance_to_goal = std::sqrt(pow(goal_[0] - current_x, 2) + pow(goal_[1] - current_y, 2));
   float linear_speed = std::min(config_.max_speed, distance_to_goal / config_.predict_time); // 최대 속도와 목표 거리 기반
 
-
   x[3] = linear_speed; // 선형 속도 업데이트
 
-  u_ = Control({{linear_speed, yaw_rate}});
-  
+  u_ = Control({{linear_speed, x[4]}});
+
   x_ = x;
 
   return x;
@@ -86,7 +78,7 @@ Trajectory DWAPlanner::CalcTrajectory(float v, float y)
 float DWAPlanner::CalcObstacleCost(Trajectory traj)
 {
     float minr = std::numeric_limits<float>::max();
-    int skip_n = 4; // skip some points of the trajectory
+    int skip_n = 1; // skip some points of the trajectory
 
     for (unsigned int ii = 0; ii < traj.size(); ii += skip_n)
     {
@@ -119,16 +111,28 @@ float DWAPlanner::CalcObstacleCost(Trajectory traj)
     */
 float DWAPlanner::CalcToGoalCost(Trajectory traj)
 {
-  // Cost is defined by the angle to goal
-  float goal_magnitude = std::sqrt(pow(goal_[0]-x_[0],2) + pow(goal_[1]-x_[1],2));
-  float traj_magnitude = std::sqrt(std::pow(traj.back()[0]-x_[0], 2) + std::pow(traj.back()[1]-x_[1], 2));
-  float dot_product = ((goal_[0]-x_[0]) * (traj.back()[0]-x_[0])) + ((goal_[1]-x_[1]) * (traj.back()[1]-x_[1]));
-  float error = dot_product / (goal_magnitude * traj_magnitude);
-  float error_angle = std::acos(error);
-  float cost = config_.to_goal_cost_gain * error_angle;
 
-  return cost;
+    // Cost is defined by the angle to goal
+    float goal_magnitude = std::sqrt(pow(goal_[0]-x_[0], 2) + pow(goal_[1]-x_[1], 2));
+    float traj_magnitude = std::sqrt(pow(traj.back()[0]-x_[0], 2) + pow(traj.back()[1]-x_[1], 2));
+
+    // 0으로 나누기 방지
+    if (goal_magnitude == 0 || traj_magnitude == 0) {
+        return std::numeric_limits<float>::max(); // 비용을 매우 큰 값으로 설정
+    }
+
+    float dot_product = ((goal_[0]-x_[0]) * (traj.back()[0]-x_[0])) + ((goal_[1]-x_[1]) * (traj.back()[1]-x_[1]));
+    float error = dot_product / (goal_magnitude * traj_magnitude);
+
+    // error를 -1과 1 사이로 제한
+    error = std::max(-1.0f, std::min(1.0f, error));
+
+    float error_angle = std::acos(error);
+    float cost = config_.to_goal_cost_gain * error_angle;
+
+    return cost;
 }
+
 
 //! CalcFinalInput function
     /*!
@@ -142,6 +146,9 @@ Trajectory DWAPlanner::CalcFinalInput(Window dw)
   Control min_u = u_;
   min_u[0] = 0.0;
   Trajectory best_traj;
+
+  std::cout << dw[0] << " " << dw[1] << " " << dw[2] << " " << dw[3] << "\n";
+
   // evalucate all trajectory with sampled input in dynamic window
   for (float v = dw[0]; v <= dw[1]; v += config_.v_reso)
   {
@@ -163,6 +170,8 @@ Trajectory DWAPlanner::CalcFinalInput(Window dw)
         min_cost = final_cost;
         min_u = Control{{v, y}};
         best_traj = traj;
+
+        std::cout << "min cost" << "\n";
       }
     }
   }
@@ -219,8 +228,6 @@ void DWAPlanner::SetObstacles(const pcl::PointCloud<pcl::PointXYZ>::Ptr& lidar_p
             }
         }
     }
-
-
 
     // 가장 가까운 장애물 저장
     if (min_dist < std::numeric_limits<float>::max())
