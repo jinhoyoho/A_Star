@@ -20,6 +20,7 @@
 #include <pcl/point_cloud.h>
 #include <vector>
 #include <limits>
+#include <algorithm>
 
 
 rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr path_publisher_;
@@ -49,11 +50,6 @@ double ld_x, ld_y; // ld x, y 좌표
 Node start((-1)*origin_x + 3*current_x, (-1)*origin_y + 3*current_y);
 Node goal(150, 150); // 해상도에 맞춰 조정
 
-State init_state = {start.x(), start.y(), 0, 0, 0};
-
-
-DWAPlanner dwa(init_state); // 초기 DWA 생성
-
 size_t goal_index = 0;
 
 
@@ -64,6 +60,8 @@ void topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
 
     start.set_x((-1)*origin_x + 3*current_x);
     start.set_y((-1)*origin_y + 3*current_y);
+
+    std::cout << "현재 위치: " << (-1)*origin_x + 3*current_x << " " << (-1)*origin_y + 3*current_y << "\n"; 
 }
 
 // Static Transform Publisher 추가
@@ -248,7 +246,7 @@ void findClosestNode(std::vector<Node>& path, size_t& start_index) {
     }
 
     // 가장 가까운 노드 인덱스를 다음 검색을 위해 업데이트
-    start_index = closest_index + 1; // 다음 검색을 위해 인덱스를 업데이트
+    // start_index = closest_index + 1; // 다음 검색을 위해 인덱스를 업데이트
 
     publish_float64_multiarray(); // publish
 
@@ -265,7 +263,7 @@ void findClosestNode(std::vector<Node>& path, size_t& start_index) {
     local_goal.color.a = 1.0; // 불투명도
     local_goal.color.g = 1.0; // 초록색
     local_goal.color.r = 1.0; // 빨간색
-    local_goal.color.b = 0.0; // 파란색
+    local_goal.color.b = 1.0; // 파란색
 
     // 시작점 위치 설정
     local_goal.pose.position.x = ld_x;
@@ -278,7 +276,7 @@ void findClosestNode(std::vector<Node>& path, size_t& start_index) {
 
 
 // dwa 관련 함수
-void SetDWA()
+void SetDWA(DWAPlanner& dwa, State& state)
 {
     Point goal_point = {ld_x, ld_y};
 
@@ -315,8 +313,8 @@ void SetDWA()
     Control command = dwa.GetCmd(); // DWAPlanner에서 명령 얻기
 
     // 로봇 상태 업데이트 (모션 적용)
-    init_state = dwa.Motion(init_state, current_x, current_y, heading); // dt = 0.1초
-    dwa.SetState(init_state); // 업데이트된 상태 설정
+    state = dwa.Motion(state, (-1)*origin_x + 3*current_x , (-1)*origin_y + 3*current_y , heading); // dt = 0.1초
+    dwa.SetState(state); // 업데이트된 상태 설정
 
     dwa.PublishTrajectory(trajectory_publisher_);
 
@@ -325,8 +323,9 @@ void SetDWA()
     //     std::cout << "Goal reached!" << std::endl;
     //     goal_index++;
     // }
+    std::cout << "현재 위치: " << state[0] << " " << state[1] << "\n";
 
-    if (sqrt(pow(goal_point[0] - init_state[0], 2) + pow(goal_point[1] - init_state[1], 2)) < 0.5) {
+    if (sqrt(pow(goal_point[0] - state[0], 2) + pow(goal_point[1] - state[1], 2)) < 0.5) {
         std::cout << "Goal reached!!!!!!" << "\n";
         goal_index++;
     }
@@ -340,7 +339,7 @@ void SetDWA()
 }
 
 
-void publishCostmapAndPath() {
+void publishCostmapAndPath(DWAPlanner& dwa, State& state) {
 
     publishCostmap();
 
@@ -354,8 +353,9 @@ void publishCostmapAndPath() {
 
         if (a_star_->plan(start, goal, path, expand)) {
             global_path = path; // 전역 경로에 저장
+            std::reverse(global_path.begin(), global_path.end());
 
-            for(auto& p:path)
+            for(auto& p:global_path)
             {
                 std::cout << "path: " << p.x() << " "<< p.y() << "\n";
             }
@@ -370,7 +370,7 @@ void publishCostmapAndPath() {
         // 경로가 계산되었다면 지속적으로 시각화, ld 계산
         visualizePath(global_path);
         findClosestNode(global_path, goal_index);
-        SetDWA();
+        SetDWA(dwa, state);
     }
 }
 
@@ -408,11 +408,17 @@ int main(int argc, char** argv) {
 
     a_star_ = std::make_unique<global_planner::AStar>(costmap_.get(), false, true);
 
+    State state = {static_cast<float>(start.x()), static_cast<float>(start.y()), 0.0f, 0.0f, 0.0f};
+
+
+
+    DWAPlanner dwa(state); // 초기 DWA 생성
+
   
     rclcpp::TimerBase::SharedPtr timer = node->create_wall_timer(
         std::chrono::milliseconds(500), // 0.5초에 한번씩 계산
-        []() {
-            publishCostmapAndPath();
+        [&dwa, &state]() {
+            publishCostmapAndPath(dwa, state);
             publishStaticTransform();
         });
 

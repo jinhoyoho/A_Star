@@ -29,7 +29,10 @@ find_package(nav2_costmap_2d REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(nav2_core REQUIRED)
-
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(rclpy REQUIRED)
+find_package(example_interfaces REQUIRED)
 
 # Declare a library
 add_library(${PROJECT_NAME}
@@ -70,6 +73,10 @@ add_executable(map2d src/map2d.cpp)
 ament_target_dependencies(map2d rclcpp std_msgs sensor_msgs PCL pcl_conversions)
 target_link_libraries(map2d ${PCL_LIBRARIES})
 
+add_executable(lidar src/lidar_proccesing.cpp)
+ament_target_dependencies(lidar rclcpp std_msgs sensor_msgs PCL pcl_conversions)
+target_link_libraries(lidar ${PCL_LIBRARIES})
+
 # Link dependencies to the library
 ament_target_dependencies(${PROJECT_NAME} 
   rclcpp 
@@ -86,6 +93,7 @@ install(TARGETS
   main
   relocalization
   map2d
+  lidar
   ${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )
