@@ -1,5 +1,7 @@
 import rclpy as rp
 from std_msgs.msg import Float64MultiArray
+from geometry_msgs.msg import Point32
+from sensor_msgs.msg import PointCloud
 import numpy as np
 
 current_pose = [0, 0, 0]
@@ -26,11 +28,26 @@ def timer_callback():
         global_path.append([current_pose[0], current_pose[1]])
         previous_pose = current_pose
 
+    pc = PointCloud()
+    for p in global_path:
+        pt = Point32()
+        pt.x = p[0]
+        pt.y = p[1]
+        pt.z = 0
+        pc.points.append(pt)
+
+    path_pub.publish(pc)
+
+    
+    
+    
+
 
 rp.init()
 node = rp.create_node("global_path_maker")
 pose_sub = node.create_subscription(Float64MultiArray, "/pose", callback = pose_callback, qos_profile = 10)
 timer = node.create_timer(0.1, callback = timer_callback)
+path_pub = node.create_publisher(PointCloud, "/path", 10)
 
 try:
     rp.spin(node)
